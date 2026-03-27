@@ -1,0 +1,19 @@
+fastapi
+uvicorn[standard]
+sqlmodel
+python-multipart
+pydantic-settings
+openai
+
+# PDF text extraction
+pypdf
+
+# OCR fallback (optional but recommended)
+pdf2image
+pytesseract
+Pillow
+
+# LangGraph
+langgraph
+langgraph-checkpoint-sqlite
+typing_extensions

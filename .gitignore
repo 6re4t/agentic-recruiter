@@ -1,0 +1,28 @@
+# Environment files (secrets)
+.env
+.env.*
+backend/.env
+frontend/.env
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.egg-info/
+.venv/
+venv/
+
+# Backend runtime data
+backend/data/app.db
+backend/data/checkpoints.sqlite
+backend/data/uploads/
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
