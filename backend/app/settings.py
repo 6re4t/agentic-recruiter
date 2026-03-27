@@ -1,5 +1,10 @@
 from typing import List
+from pathlib import Path
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+DATA_DIR = PROJECT_ROOT / "data"
 
 
 class Settings(BaseSettings):
@@ -9,15 +14,15 @@ class Settings(BaseSettings):
     OPENROUTER_BASE_URL: str = "https://openrouter.ai/api/v1"
     OPENROUTER_MODEL: str = "openai/gpt-4o-2024-08-06"
 
-    DATABASE_URL: str = "sqlite:///./data/app.db"
-    UPLOAD_DIR: str = "./data/uploads"
+    DATABASE_URL: str = f"sqlite:///{(DATA_DIR / 'app.db').as_posix()}"
+    UPLOAD_DIR: str = str(DATA_DIR / "uploads")
 
     CORS_ORIGINS: str = "http://localhost:3000"
 
     OCR_MAX_PAGES: int = 6
     TEXT_MIN_CHARS_FOR_NO_OCR: int = 300
 
-    CHECKPOINT_DB_PATH: str = "./data/checkpoints.sqlite"
+    CHECKPOINT_DB_PATH: str = str(DATA_DIR / "checkpoints.sqlite")
 
     SMTP_ENABLED: bool = False
     SMTP_HOST: str = "localhost"
