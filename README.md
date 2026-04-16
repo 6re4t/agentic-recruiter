@@ -1,120 +1,157 @@
 # Agentic Recruiter
 
-FastAPI + LangGraph backend and React frontend for recruiter workflows:
-- create jobs
-- ingest candidate resumes (manual text or PDF upload)
-- extract and score candidates with LLM calls
-- draft outreach emails
-- approve/resume graph runs
-- send outreach through SMTP
+FastAPI + LangGraph backend and React frontend for AI-assisted recruiting workflows.
+
+## Features
+
+- **Job management** — create jobs with descriptions and evaluation rubrics
+- **Candidate ingestion** — manual text entry or bulk PDF upload (text extraction + OCR fallback)
+- **4-agent LangGraph pipeline** — extraction → job analysis → scoring → outreach, per candidate
+- **Batch Top-K** — score all candidates concurrently, draft outreach for the top N; skip already-scored candidates
+- **Structured scoring** — per-job fixed category names, category scores with rationale, strengths/gaps, evidence snippets
+- **Semantic search** — search resumes, job descriptions, and recruiter notes by meaning (OpenAI embeddings, cached to DB)
+- **Recruiter notes** — free-text notes on each application, included in semantic search
+- **Outreach drafting** — tone/sender settings, approve/reject flow, SMTP send
+- **Settings page** — configure sender info, tone presets, default Top-K, approval requirement
+- **Audit log** — all key actions recorded
 
 ## Tech Stack
 
 - **Backend:** FastAPI, SQLModel, LangGraph, SQLite
 - **Frontend:** React (Vite)
-- **LLM Provider:** OpenRouter
+- **LLM Provider:** OpenRouter (structured outputs via `openai` SDK)
+- **Embeddings:** `openai/text-embedding-3-small` via OpenRouter
 - **Email:** SMTP (manual send endpoint + optional auto-send after approval)
 
 ## Project Structure
 
-- `backend/app` — API, graph logic, DB models, settings
-- `frontend` — React UI
-- `data` — runtime artifacts (SQLite DB, checkpoints, uploads)
-- `run-dev.ps1` — starts backend + frontend in separate PowerShell windows
+```
+backend/app/
+  main.py            — FastAPI app, router registration
+  models.py          — SQLModel DB models
+  schemas.py         — Pydantic request/response schemas
+  agent_llm.py       — LLM calls: extract, analyze_job, score, embed, draft_outreach
+  recruiter_graph.py — LangGraph pipeline (4 agents)
+  routes/
+    jobs.py          — CRUD + delete
+    candidates.py    — CRUD + PDF upload + delete
+    applications.py  — CRUD + recruiter notes PATCH
+    batch.py         — Batch Top-K endpoint
+    search.py        — Semantic search endpoint
+    agent_graph.py   — Pipeline run/resume
+    outreach.py      — SMTP send
+    settings.py      — GET/PUT outreach settings
+    audit.py         — Audit log
+    health.py        — OpenRouter connectivity check
+frontend/src/
+  App.jsx            — All views: Jobs, Candidates, Search, Settings
+data/                — SQLite DB, checkpoints, uploaded PDFs, settings.json
+run-dev.ps1          — Starts backend + frontend in separate windows
+```
 
 ## Prerequisites
 
-- Python 3.10+
+- Python 3.10+ (tested on 3.14)
 - Node.js 18+
 - npm
-- (Optional) Conda env named `agentic` if you use `run-dev.ps1`
 
 ## Environment Setup
 
-Use a single env file at repository root.
+Create a `.env` file at the repository root:
 
-1. Copy `.env.example` to `.env`.
-2. Set required values:
-   - `OPENROUTER_API_KEY` (required for extraction/scoring/outreach generation)
-3. Optional SMTP values for email sending:
-   - `SMTP_ENABLED=true`
-   - `SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD`
-   - `SMTP_FROM_EMAIL`, `SMTP_FROM_NAME`
-   - `SMTP_AUTO_SEND_APPROVED=true` to auto-send after graph approval
-4. Frontend API base:
-   - `VITE_API_BASE_URL` (defaults to `http://127.0.0.1:8000`)
+```env
+# Required
+OPENROUTER_API_KEY=your_key_here
+
+# Optional — defaults shown
+OPENROUTER_MODEL=openai/gpt-4o-2024-08-06
+VITE_API_BASE_URL=http://127.0.0.1:8000
+
+# Optional — SMTP for outreach email
+SMTP_ENABLED=false
+SMTP_HOST=smtp.example.com
+SMTP_PORT=587
+SMTP_USERNAME=user@example.com
+SMTP_PASSWORD=secret
+SMTP_FROM_EMAIL=recruiter@example.com
+SMTP_FROM_NAME=Recruiting Team
+SMTP_AUTO_SEND_APPROVED=false
+```
 
 ## Install
 
-### Backend
-
 ```powershell
+# Backend
 pip install -r requirements.txt
-```
 
-### Frontend
-
-```powershell
+# Frontend
 cd frontend
 npm install
 ```
 
 ## Run
 
-### Option A: One command (Windows PowerShell)
-
-From repo root:
+### Option A — one command (Windows PowerShell)
 
 ```powershell
 ./run-dev.ps1
 ```
 
-This opens:
-- backend on `http://localhost:8000`
-- frontend on `http://localhost:5173`
+Opens backend on `http://localhost:8000` and frontend on `http://localhost:5173`.
 
-### Option B: Manual terminals
-
-Terminal 1 (repo root):
+### Option B — separate terminals
 
 ```powershell
+# Terminal 1 (repo root)
 uvicorn backend.app.main:app --reload
-```
 
-Terminal 2:
-
-```powershell
+# Terminal 2
 cd frontend
 npm run dev
 ```
 
 ## API Overview
 
-- `GET /` — health
-- `POST /jobs`, `GET /jobs`
-- `POST /candidates` (manual candidate)
-- `POST /candidates/upload_pdfs` (single/multi PDF upload)
-- `GET /candidates`, `GET /candidates/{candidate_id}`
-- `POST /agent/graph/run`
-- `POST /agent/graph/resume`
-- `POST /agent/batch/topk_outreach`
-- `POST /outreach/send` (send drafted outreach via SMTP)
-- `GET /audit`
-- `GET /health/openrouter`
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/` | Health check |
+| `POST/GET` | `/jobs` | Create / list jobs |
+| `DELETE` | `/jobs/{id}` | Delete job + applications |
+| `POST/GET` | `/candidates` | Create / list candidates |
+| `POST` | `/candidates/upload_pdfs` | Bulk PDF upload |
+| `DELETE` | `/candidates/{id}` | Delete candidate + applications |
+| `GET` | `/candidates/{id}/applications` | Applications for a candidate |
+| `PATCH` | `/applications/{id}/notes` | Save recruiter notes |
+| `POST` | `/agent/graph/run` | Run pipeline for one candidate × job |
+| `POST` | `/agent/graph/resume` | Resume a paused pipeline (approve/reject) |
+| `POST` | `/agent/batch/topk_outreach` | Batch score + outreach (supports `skip_scored`) |
+| `POST` | `/search` | Semantic search (resumes, jobs, notes) |
+| `POST` | `/outreach/send` | Send drafted email via SMTP |
+| `GET/PUT` | `/settings` | Outreach settings |
+| `GET` | `/audit` | Audit log |
+| `GET` | `/health/openrouter` | LLM connectivity check |
 
 ## Typical Flow
 
-1. Create a job.
-2. Upload candidate PDFs (or create candidates manually).
+1. **Create a job** with a description and scoring rubric.
+2. **Upload candidate PDFs** (or create candidates manually). The system extracts text and parses name/email automatically.
 3. Wait for candidates to reach `Ready` stage.
-4. Run graph or batch top-k.
-5. Approve/reject if graph is waiting for approval.
-6. Send outreach:
-   - manually via UI button / `POST /outreach/send`
-   - or automatically if `SMTP_AUTO_SEND_APPROVED=true`.
+4. **Run pipeline** (single candidate) or **Batch Top-K** (all ready candidates at once).
+   - Enable "Skip scored" to re-run only new candidates.
+5. **Review** scores, category breakdowns, strengths/gaps, and evidence snippets in the UI.
+6. **Add recruiter notes** to any application.
+7. **Send outreach** manually via the UI or automatically if `SMTP_AUTO_SEND_APPROVED=true`.
+8. **Search** across all resumes, job descriptions, and notes from the 🔍 Search tab.
+
+## Data
+
+- All runtime data lives under `data/` — SQLite DB (`app.db`), LangGraph checkpoints, uploaded PDFs, and `settings.json`.
+- Resume embeddings are computed on first search and cached on the candidate row — subsequent searches are fast.
+- Deleting a job or candidate also deletes all associated applications.
+- `.env`, `data/`, and build artifacts are gitignored.
 
 ## Notes
 
-- Runtime data is stored under the root `data` directory.
-- `.env`, `data`, uploads, and build artifacts are gitignored.
-- OCR fallback requires local OCR tooling (Tesseract + pdf2image dependencies).
+- OCR fallback requires Tesseract and pdf2image system dependencies.
+- Job analysis (scoring categories) is computed once per job and cached; categories stay consistent across all candidates scored for that job.
+- The LLM model can be overridden per-deployment via `OPENROUTER_MODEL` in `.env`.

@@ -4,6 +4,7 @@ sqlmodel
 python-multipart
 pydantic-settings
 openai
+numpy
 
 # PDF text extraction
 pypdf

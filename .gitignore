@@ -14,6 +14,8 @@ venv/
 
 # Backend runtime data
 data/
+data/uploads/
+resumes/
 
 # Frontend
 frontend/node_modules/

@@ -8,11 +8,14 @@ from .graph_runtime import init_graph
 
 from .routes.jobs import router as jobs_router
 from .routes.candidates import router as candidates_router
+from .routes.applications import router as applications_router
 from .routes.agent_graph import router as agent_graph_router
 from .routes.audit import router as audit_router
 from .routes.health import router as health_router
 from .routes.batch import router as batch_router
 from .routes.outreach import router as outreach_router
+from .routes.settings import router as settings_router
+from .routes.search import router as search_router
 
 app = FastAPI(title="Agentic Recruiter (PDF CV Ingestion + LangGraph + FastAPI)")
 
@@ -48,11 +51,14 @@ def on_shutdown():
 
 app.include_router(jobs_router)
 app.include_router(candidates_router)
+app.include_router(applications_router)
 app.include_router(agent_graph_router)
 app.include_router(audit_router)
 app.include_router(health_router)
 app.include_router(batch_router)
 app.include_router(outreach_router)
+app.include_router(settings_router)
+app.include_router(search_router)
 
 
 @app.get("/")

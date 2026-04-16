@@ -1,9 +1,12 @@
-from fastapi import APIRouter, Depends
+from typing import List
+
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, BackgroundTasks
 from sqlmodel import Session, select
 
 from ..db import get_session
-from ..models import Job, AuditLog
+from ..models import Job, Application, AuditLog
 from ..schemas import JobCreate
+from ..storage import save_upload_pdf
 
 router = APIRouter(prefix="/jobs", tags=["jobs"])
 
@@ -27,3 +30,70 @@ def create_job(payload: JobCreate, session: Session = Depends(get_session)):
 @router.get("")
 def list_jobs(session: Session = Depends(get_session)):
     return session.exec(select(Job).order_by(Job.created_at.desc())).all()
+
+
+@router.delete("/{job_id}")
+def delete_job(job_id: int, session: Session = Depends(get_session)):
+    job = session.get(Job, job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+    # Delete all applications for this job first
+    apps = session.exec(select(Application).where(Application.job_id == job_id)).all()
+    for app in apps:
+        session.delete(app)
+    session.delete(job)
+    audit(session, "job_deleted", "job", job_id, job.title)
+    session.commit()
+    return {"deleted": job_id}
+
+
+@router.get("/{job_id}/applications")
+def list_job_applications(job_id: int, session: Session = Depends(get_session)):
+    if not session.get(Job, job_id):
+        raise HTTPException(status_code=404, detail="Job not found")
+    return session.exec(
+        select(Application).where(Application.job_id == job_id).order_by(Application.created_at.desc())
+    ).all()
+
+
+@router.post("/{job_id}/upload-candidates")
+async def upload_candidates_for_job(
+    job_id: int,
+    background_tasks: BackgroundTasks,
+    files: List[UploadFile] = File(...),
+    session: Session = Depends(get_session),
+):
+    """
+    Upload one or more PDF resumes directly against a specific job.
+    For each PDF:
+      1. Save file and create a Candidate placeholder.
+      2. In background: extract text, dedup against existing candidates by hash/email,
+         then create an Application for this job (idempotent).
+    """
+    from .candidates import _process_candidate_pdf, audit as cand_audit
+    from ..models import Candidate
+
+    job = session.get(Job, job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    pdf_files = [f for f in files if (f.filename or "").lower().endswith(".pdf")]
+    if not pdf_files:
+        raise HTTPException(status_code=400, detail="No PDF files found in upload")
+
+    created_ids: List[int] = []
+    for f in pdf_files:
+        path = save_upload_pdf(f)
+
+        cand = Candidate(pdf_path=path, stage="Processing", processing_status="new")
+        session.add(cand)
+        session.commit()
+        session.refresh(cand)
+
+        cand_audit(session, "candidate_pdf_uploaded", "candidate", cand.id, f.filename)
+        session.commit()
+
+        created_ids.append(cand.id)
+        background_tasks.add_task(_process_candidate_pdf, cand.id, job_id)
+
+    return {"job_id": job_id, "created_candidate_ids": created_ids}

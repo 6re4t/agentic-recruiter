@@ -6,7 +6,7 @@ from sqlmodel import Session
 from langgraph.types import Command  # resume interrupts with Command(resume=...) :contentReference[oaicite:7]{index=7}
 
 from ..db import get_session
-from ..models import Candidate, Job, AgentRun, AuditLog
+from ..models import Application, Candidate, Job, AgentRun, AuditLog
 from ..schemas import GraphRunRequest, GraphRunResponse, GraphResumeRequest
 
 router = APIRouter(prefix="/agent/graph", tags=["agent-graph"])
@@ -34,19 +34,28 @@ def _extract_interrupt_payload(result: dict):
 
 @router.post("/run", response_model=GraphRunResponse)
 def run_graph(payload: GraphRunRequest, request: Request, session: Session = Depends(get_session)):
-    # Validate job/candidate exist and candidate is ready
-    job = session.get(Job, payload.job_id)
-    cand = session.get(Candidate, payload.candidate_id)
-    if not job:
-        raise HTTPException(status_code=404, detail="Job not found")
+    app_rec = session.get(Application, payload.application_id)
+    if not app_rec:
+        raise HTTPException(status_code=404, detail="Application not found")
+
+    cand = session.get(Candidate, app_rec.candidate_id)
+    job = session.get(Job, app_rec.job_id)
     if not cand:
         raise HTTPException(status_code=404, detail="Candidate not found")
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
     if not cand.resume_text:
         raise HTTPException(status_code=409, detail="Candidate resume_text not ready (still processing or failed).")
 
     thread_id = uuid.uuid4().hex
 
-    run = AgentRun(thread_id=thread_id, job_id=payload.job_id, candidate_id=payload.candidate_id, status="running")
+    run = AgentRun(
+        thread_id=thread_id,
+        job_id=app_rec.job_id,
+        candidate_id=app_rec.candidate_id,
+        application_id=app_rec.id,
+        status="running",
+    )
     session.add(run)
     session.commit()
     session.refresh(run)
@@ -57,8 +66,9 @@ def run_graph(payload: GraphRunRequest, request: Request, session: Session = Dep
     graph = request.app.state.recruiter_graph
 
     initial_state = {
-        "candidate_id": payload.candidate_id,
-        "job_id": payload.job_id,
+        "application_id": app_rec.id,
+        "candidate_id": app_rec.candidate_id,
+        "job_id": app_rec.job_id,
         "require_approval": payload.require_approval,
         "sender_name": payload.sender_name,
         "sender_company": payload.sender_company,
