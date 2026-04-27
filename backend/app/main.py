@@ -1,3 +1,13 @@
+import warnings
+# langchain-core's deprecation shim imports pydantic.v1 which triggers a
+# UserWarning on Python 3.14+. The underlying code still works; suppress
+# the warning until langchain-core fully drops the pydantic.v1 compat layer.
+warnings.filterwarnings(
+    "ignore",
+    message="Core Pydantic V1 functionality",
+    category=UserWarning,
+)
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -16,6 +26,7 @@ from .routes.batch import router as batch_router
 from .routes.outreach import router as outreach_router
 from .routes.settings import router as settings_router
 from .routes.search import router as search_router
+from .routes.chat import router as chat_router
 
 app = FastAPI(title="Agentic Recruiter (PDF CV Ingestion + LangGraph + FastAPI)")
 
@@ -59,6 +70,7 @@ app.include_router(batch_router)
 app.include_router(outreach_router)
 app.include_router(settings_router)
 app.include_router(search_router)
+app.include_router(chat_router)
 
 
 @app.get("/")

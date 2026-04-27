@@ -1,5 +1,7 @@
 ﻿import { useEffect, useState } from 'react'
 import './App.css'
+import GraphView from './GraphView.jsx'
+import ChatView from './ChatView.jsx'
 
 const API_BASE = (import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000').replace(/\/$/, '')
 
@@ -262,6 +264,59 @@ function ResultViewer({ data, depth = 0 }) {
   return <span>{String(data)}</span>
 }
 
+// ─── Icons ───────────────────────────────────────────────────────────────────
+
+const LogoMark = () => (
+  <svg width="26" height="26" viewBox="0 0 26 26" fill="none" aria-hidden="true">
+    <rect width="26" height="26" rx="7" fill="#4f46e5"/>
+    <path d="M14.8 4.5 8 13.5h5.6L11.2 21.5l8.8-10.5H14L14.8 4.5z" fill="white"/>
+  </svg>
+)
+
+const BriefcaseIcon = () => (
+  <svg width="15" height="15" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+    <path fillRule="evenodd" d="M6 3.75A2.75 2.75 0 018.75 1h2.5A2.75 2.75 0 0114 3.75v.443c.572.055 1.14.122 1.706.2C17.053 4.582 18 5.75 18 7.07v3.469c0 1.126-.694 2.191-1.83 2.54-1.952.599-4.024.921-6.17.921s-4.219-.322-6.17-.921C2.694 12.73 2 11.665 2 10.539V7.07c0-1.321.947-2.489 2.294-2.676A41.047 41.047 0 016 4.193V3.75zm6.5 0v.325a41.622 41.622 0 00-5 0V3.75c0-.69.56-1.25 1.25-1.25h2.5c.69 0 1.25.56 1.25 1.25zM10 10a1 1 0 00-1 1v.01a1 1 0 001 1h.01a1 1 0 001-1V11a1 1 0 00-1-1H10z" clipRule="evenodd"/>
+    <path d="M3 15.055v-.684c.124.082.253.16.389.231 2.077 1.073 4.4 1.575 6.611 1.575 2.21 0 4.533-.502 6.61-1.575.137-.071.266-.149.39-.231v.684c0 1.347-.985 2.57-2.363 2.727a41.911 41.911 0 01-9.274 0C3.985 17.624 3 16.402 3 15.055z"/>
+  </svg>
+)
+
+const UsersIcon = () => (
+  <svg width="15" height="15" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+    <path d="M7 8a3 3 0 100-6 3 3 0 000 6zM14.5 9a2.5 2.5 0 100-5 2.5 2.5 0 000 5zM1.615 16.428a1.224 1.224 0 01-.569-1.175 6.002 6.002 0 0111.908 0c.058.467-.172.92-.57 1.174A9.953 9.953 0 017 17a9.953 9.953 0 01-5.385-1.572zM14.5 16h-.106c.07-.297.088-.611.048-.933a7.47 7.47 0 00-1.588-3.755 4.502 4.502 0 015.874 2.636.818.818 0 01-.36.98A7.465 7.465 0 0114.5 16z"/>
+  </svg>
+)
+
+const SearchIconNav = () => (
+  <svg width="15" height="15" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+    <path fillRule="evenodd" d="M9 3.5a5.5 5.5 0 100 11 5.5 5.5 0 000-11zM2 9a7 7 0 1112.452 4.391l3.328 3.329a.75.75 0 11-1.06 1.06l-3.329-3.328A7 7 0 012 9z" clipRule="evenodd"/>
+  </svg>
+)
+
+const GraphIconNav = () => (
+  <svg width="15" height="15" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+    <path d="M13 4.5a2.5 2.5 0 11.702 1.737L6.97 9.604a2.518 2.518 0 010 .792l6.733 3.367a2.5 2.5 0 11-.671 1.341l-6.733-3.367a2.5 2.5 0 110-3.474l6.733-3.366A2.52 2.52 0 0113 4.5z"/>
+  </svg>
+)
+
+const ChatIconNav = () => (
+  <svg width="15" height="15" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+    <path d="M3.505 2.365A41.369 41.369 0 019 2c1.863 0 3.697.124 5.495.365 1.247.167 2.18 1.108 2.435 2.268a4.45 4.45 0 00-.577-.069 43.141 43.141 0 00-4.706 0C9.229 4.696 7.5 6.727 7.5 8.998v2.24c0 1.413.67 2.735 1.76 3.562l-2.98 2.98A.75.75 0 015 17.25v-3.443c-.501-.048-1-.106-1.495-.172C2.033 13.438 1 12.162 1 10.72V5.28c0-1.441 1.033-2.717 2.505-2.914z"/>
+    <path d="M14 6c-.762 0-1.52.02-2.271.062C10.157 6.148 9 7.472 9 8.998v2.24c0 1.519 1.147 2.839 2.71 2.935.214.013.428.024.642.034.2.009.385.09.518.224l2.35 2.35a.75.75 0 001.28-.531v-2.07c1.453-.195 2.5-1.463 2.5-2.915V8.998c0-1.526-1.157-2.85-2.729-2.936A41.645 41.645 0 0014 6z"/>
+  </svg>
+)
+
+const SettingsIconNav = () => (
+  <svg width="15" height="15" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+    <path fillRule="evenodd" d="M7.84 1.804A1 1 0 018.82 1h2.36a1 1 0 01.98.804l.331 1.652a6.993 6.993 0 011.929 1.115l1.598-.54a1 1 0 011.186.447l1.18 2.044a1 1 0 01-.205 1.251l-1.267 1.113a7.047 7.047 0 010 2.228l1.267 1.113a1 1 0 01.205 1.251l-1.18 2.044a1 1 0 01-1.186.447l-1.598-.54a6.993 6.993 0 01-1.929 1.115l-.33 1.652a1 1 0 01-.98.804H8.82a1 1 0 01-.98-.804l-.331-1.652a6.993 6.993 0 01-1.929-1.115l-1.598.54a1 1 0 01-1.186-.447l-1.18-2.044a1 1 0 01.205-1.251l1.267-1.113a7.047 7.047 0 010-2.228L1.08 7.304a1 1 0 01-.205-1.251l1.18-2.044a1 1 0 011.186-.447l1.598.54A6.993 6.993 0 016.768 2.9l.33-1.652a1 1 0 01.74-.797V1.804zM10 13a3 3 0 100-6 3 3 0 000 6z" clipRule="evenodd"/>
+  </svg>
+)
+
+const TerminalIcon = () => (
+  <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+    <path fillRule="evenodd" d="M2 5a2 2 0 012-2h12a2 2 0 012 2v10a2 2 0 01-2 2H4a2 2 0 01-2-2V5zm3.293 1.293a1 1 0 011.414 0l3 3a1 1 0 010 1.414l-3 3a1 1 0 01-1.414-1.414L7.586 10 5.293 7.707a1 1 0 010-1.414zM11 12a1 1 0 100 2h3a1 1 0 100-2h-3z" clipRule="evenodd"/>
+  </svg>
+)
+
 // ─── App shell ──────────────────────────────────────────────────────────────
 
 export default function App() {
@@ -301,32 +356,43 @@ export default function App() {
   return (
     <div className="app-shell">
       <header className="topbar">
-        <span className="topbar-title">🤖 Agentic Recruiter</span>
-        <nav className="topbar-tabs">
-          <button className={`tab-btn ${view === 'jobs' ? 'active' : ''}`} onClick={() => setView('jobs')}>
-            💼 Jobs
-          </button>
-          <button className={`tab-btn ${view === 'candidates' ? 'active' : ''}`} onClick={() => setView('candidates')}>
-            👤 Candidates
-          </button>
-          <button className={`tab-btn ${view === 'settings' ? 'active' : ''}`} onClick={() => setView('settings')}>
-            ⚙️ Settings
-          </button>
-          <button className={`tab-btn ${view === 'search' ? 'active' : ''}`} onClick={() => setView('search')}>
-            🔍 Search
-          </button>
-        </nav>
-        <span className={`topbar-status ${statusClass(status)}`}>{status}</span>
-        <button
-          className="btn-ghost btn-sm"
-          onClick={() => setShowResult(v => !v)}
-          title="Toggle last API result"
-          style={{ marginLeft: '8px' }}
-        >
-          {showResult ? 'Hide result' : 'Show result'}
-        </button>
-        <span className="api-url">{API_BASE}</span>
-      </header>
+          <div className="topbar-brand">
+            <LogoMark />
+            <span className="topbar-title">Agentic Recruiter</span>
+          </div>
+          <nav className="topbar-nav">
+            <button className={`tab-btn ${view === 'jobs' ? 'active' : ''}`} onClick={() => setView('jobs')}>
+              <BriefcaseIcon /> Jobs
+            </button>
+            <button className={`tab-btn ${view === 'candidates' ? 'active' : ''}`} onClick={() => setView('candidates')}>
+              <UsersIcon /> Candidates
+            </button>
+            <button className={`tab-btn ${view === 'search' ? 'active' : ''}`} onClick={() => setView('search')}>
+              <SearchIconNav /> Search
+            </button>
+            <button className={`tab-btn ${view === 'graph' ? 'active' : ''}`} onClick={() => setView('graph')}>
+              <GraphIconNav /> Graph
+            </button>
+            <button className={`tab-btn ${view === 'chat' ? 'active' : ''}`} onClick={() => setView('chat')}>
+              <ChatIconNav /> Chat
+            </button>
+            <button className={`tab-btn ${view === 'settings' ? 'active' : ''}`} onClick={() => setView('settings')}>
+              <SettingsIconNav /> Settings
+            </button>
+          </nav>
+          <div className="topbar-end">
+            <span className={`topbar-status ${statusClass(status)}`}>{status}</span>
+            <button
+              className="btn-icon"
+              onClick={() => setShowResult(v => !v)}
+              title="Toggle last API result"
+              aria-pressed={showResult}
+              style={showResult ? { color: 'var(--primary)', background: 'var(--primary-light)' } : undefined}
+            >
+              <TerminalIcon />
+            </button>
+          </div>
+        </header>
 
       <main className="page">
         {showResult && (
@@ -343,12 +409,21 @@ export default function App() {
           </div>
         )}
 
+        {/* ChatView is always mounted so conversation history survives tab switches */}
+        <div style={{ display: view === 'chat' ? 'block' : 'none' }}>
+          <ChatView />
+        </div>
+
         {view === 'jobs'
           ? <JobsView runTask={runTask} settings={settings} />
           : view === 'candidates'
           ? <CandidatesView runTask={runTask} />
           : view === 'search'
           ? <SearchView runTask={runTask} />
+          : view === 'graph'
+          ? <GraphView />
+          : view === 'chat'
+          ? null
           : <SettingsView runTask={runTask} settings={settings} onSave={saveSettings} />}
       </main>
     </div>
