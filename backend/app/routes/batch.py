@@ -10,6 +10,7 @@ from ..db import get_session, engine
 from ..models import Application, Candidate, Job, AuditLog
 from ..schemas import BatchTopKRequest, BatchTopKResponse, BatchTopKItem
 from ..agent_llm import extract_candidate, score_candidate, draft_outreach, analyze_job
+from ..recruiter_graph import _redact_pii_lines
 
 
 router = APIRouter(prefix="/agent/batch", tags=["agent-batch"])
@@ -87,6 +88,7 @@ def topk_outreach(payload: BatchTopKRequest, session: Session = Depends(get_sess
             raise HTTPException(status_code=409, detail="All candidates are already scored for this job.")
 
     job_obj = {"title": job.title, "description": job.description, "rubric": job.rubric}
+    blind = getattr(job, "blind_scoring", False)
 
     # Load (or compute + cache) job analysis so all candidates use the same scoring categories
     job_analysis: dict | None = None
@@ -127,12 +129,27 @@ def topk_outreach(payload: BatchTopKRequest, session: Session = Depends(get_sess
             parsed = extract_candidate(cd["resume_text"][:8000])
             extracted = parsed.model_dump()
 
-        cand_obj = {
-            "name": cd.get("name"),
-            "email": cd.get("email"),
-            "extracted": extracted,
-            "resume_text_excerpt": cd["resume_text"][:2000],
-        }
+        if blind:
+            extracted_for_scoring = {
+                "headline": extracted.get("headline", ""),
+                "seniority": extracted.get("seniority", ""),
+                "years_experience": extracted.get("years_experience"),
+                "roles": extracted.get("roles", []),
+                "skills": extracted.get("skills", []),
+                "highlights": extracted.get("highlights", []),
+                "red_flags": extracted.get("red_flags", []),
+            }
+            cand_obj = {
+                "extracted": extracted_for_scoring,
+                "resume_text_excerpt": _redact_pii_lines(cd["resume_text"][:2000]),
+            }
+        else:
+            cand_obj = {
+                "name": cd.get("name"),
+                "email": cd.get("email"),
+                "extracted": extracted,
+                "resume_text_excerpt": cd["resume_text"][:2000],
+            }
 
         scored = score_candidate(job_obj, cand_obj, job_analysis=job_analysis).model_dump()
         return {

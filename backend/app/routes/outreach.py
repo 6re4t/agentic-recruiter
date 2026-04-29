@@ -6,7 +6,7 @@ from sqlmodel import Session
 from ..db import get_session
 from ..models import Application, Candidate, AuditLog
 from ..schemas import SendOutreachRequest, SendOutreachResponse
-from ..smtp_mailer import send_email, EmailSendError
+from ..smtp_mailer import send_email, EmailSendError, smtp_configured
 
 router = APIRouter(prefix="/outreach", tags=["outreach"])
 
@@ -25,9 +25,13 @@ def send_outreach(payload: SendOutreachRequest, session: Session = Depends(get_s
     if not cand:
         raise HTTPException(status_code=404, detail="Candidate not found")
     if not cand.email:
-        raise HTTPException(status_code=409, detail="Candidate has no email")
+        raise HTTPException(status_code=409, detail="Candidate has no email address")
     if not app_rec.outreach_json:
-        raise HTTPException(status_code=409, detail="Application has no outreach draft")
+        raise HTTPException(status_code=409, detail="No outreach draft exists for this application")
+
+    # Guard early — don't touch outreach_status if SMTP isn't configured at all
+    if not smtp_configured():
+        raise HTTPException(status_code=409, detail="SMTP is not configured. Set SMTP_ENABLED and credentials in .env.")
 
     try:
         outreach = json.loads(app_rec.outreach_json)
@@ -37,21 +41,17 @@ def send_outreach(payload: SendOutreachRequest, session: Session = Depends(get_s
     subject = outreach.get("subject")
     body = outreach.get("body")
     if not subject or not body:
-        raise HTTPException(status_code=409, detail="Outreach draft is missing subject/body")
+        raise HTTPException(status_code=409, detail="Outreach draft is missing subject or body")
 
     try:
         send_email(cand.email, subject, body)
     except EmailSendError as exc:
+        # Real send failure (network, auth) — record it
         app_rec.outreach_status = "send_failed"
         session.add(app_rec)
         audit(session, "outreach_send_failed", "application", app_rec.id, str(exc))
         session.commit()
-        return SendOutreachResponse(
-            application_id=app_rec.id,
-            sent=False,
-            outreach_status=app_rec.outreach_status or "send_failed",
-            detail=str(exc),
-        )
+        raise HTTPException(status_code=502, detail=f"Email send failed: {exc}")
 
     app_rec.outreach_status = "sent"
     app_rec.stage = "Contacted"

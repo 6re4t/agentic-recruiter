@@ -1,4 +1,4 @@
-﻿import { useEffect, useState } from 'react'
+﻿import { useEffect, useRef, useState } from 'react'
 import './App.css'
 import GraphView from './GraphView.jsx'
 import ChatView from './ChatView.jsx'
@@ -435,17 +435,43 @@ export default function App() {
 function JobsView({ runTask, settings }) {
   const [jobs, setJobs] = useState([])
   const [selectedJob, setSelectedJob] = useState(null)
-  const [jobForm, setJobForm] = useState({ title: '', description: '', rubric: '' })
+  const [jobForm, setJobForm] = useState({ title: '', description: '', rubric: '', blind_scoring: false })
   const [showCreateJob, setShowCreateJob] = useState(false)
+  const [showJD, setShowJD] = useState(true)
 
   const [applications, setApplications] = useState([])
   const [candidates, setCandidates] = useState([])
   const [selectedApp, setSelectedApp] = useState(null)
+  const [detailApp, setDetailApp] = useState(null)
 
   const [requireApproval, setRequireApproval] = useState(true)
   const [resumeRunId, setResumeRunId] = useState('')
   const [topK, setTopK] = useState(3)
   const [skipScored, setSkipScored] = useState(false)
+  const [jdReport, setJdReport] = useState(null)
+  const [jdReportJobId, setJdReportJobId] = useState(null)
+  const [jdOpen, setJdOpen] = useState(false)
+  const [jdPos, setJdPos] = useState({ top: 0, left: 0 })
+  const jdButtonRef = useRef(null)
+  const jdDropdownRef = useRef(null)
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    if (!jdOpen) return
+    function handleClickOutside(e) {
+      if (
+        jdDropdownRef.current && !jdDropdownRef.current.contains(e.target) &&
+        jdButtonRef.current && !jdButtonRef.current.contains(e.target)
+      ) {
+        setJdOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [jdOpen])
+
+  // Close if job changes
+  useEffect(() => { setJdOpen(false) }, [selectedJob?.id])
 
   useEffect(() => { loadJobs() }, [])
   useEffect(() => {
@@ -469,6 +495,7 @@ function JobsView({ runTask, settings }) {
     const data = await api(`/jobs/${jobId}/applications`)
     setApplications(data)
     setSelectedApp(null)
+    setDetailApp(null)
   }
 
   async function handleDeleteJob(id) {
@@ -498,11 +525,47 @@ function JobsView({ runTask, settings }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(jobForm),
       })
-      setJobForm({ title: '', description: '', rubric: '' })
+      setJobForm({ title: '', description: '', rubric: '', blind_scoring: false })
       setShowCreateJob(false)
       await loadJobs()
       setSelectedJob(job)
       return job
+    })
+  }
+
+  async function handleCheckJD() {
+    if (!selectedJob) return
+    // If we already have a report for this job, just toggle the panel
+    if (jdReport && jdReportJobId === selectedJob.id) {
+      const rect = jdButtonRef.current?.getBoundingClientRect()
+      if (rect) setJdPos({ top: rect.bottom + 6, left: rect.left })
+      setJdOpen(v => !v)
+      return
+    }
+    // Fetch fresh report then open
+    await runTask('Check JD quality', async () => {
+      const report = await api(`/jobs/${selectedJob.id}/check-quality`, { method: 'POST' })
+      setJdReport(report)
+      setJdReportJobId(selectedJob.id)
+      const rect = jdButtonRef.current?.getBoundingClientRect()
+      if (rect) setJdPos({ top: rect.bottom + 6, left: rect.left })
+      setJdOpen(true)
+      return report
+    })
+  }
+
+  async function handleToggleBlind() {
+    if (!selectedJob) return
+    const newVal = !selectedJob.blind_scoring
+    await runTask(newVal ? 'Enable blind scoring' : 'Disable blind scoring', async () => {
+      const updated = await api(`/jobs/${selectedJob.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ blind_scoring: newVal }),
+      })
+      setSelectedJob(updated)
+      setJobs(prev => prev.map(j => j.id === updated.id ? updated : j))
+      return updated
     })
   }
 
@@ -577,6 +640,10 @@ function JobsView({ runTask, settings }) {
 
   async function handleSendEmail() {
     if (!selectedApp) return
+    if (!selectedApp.outreach_json) {
+      alert('No outreach draft for this application. Run the pipeline first.')
+      return
+    }
     await runTask('Send email', async () => {
       const out = await api('/outreach/send', {
         method: 'POST',
@@ -639,6 +706,13 @@ function JobsView({ runTask, settings }) {
                     onChange={e => setJobForm(p => ({ ...p, rubric: e.target.value }))} required />
                   <p className="hint">The AI uses this rubric to score candidates.</p>
                 </div>
+                <label className="checkbox-field" style={{ marginBottom: '12px' }}>
+                  <input type="checkbox" checked={jobForm.blind_scoring}
+                    onChange={e => setJobForm(p => ({ ...p, blind_scoring: e.target.checked }))} />
+                  <span>
+                    <strong>Blind scoring</strong> — strip name, email &amp; location before the AI scores candidates
+                  </span>
+                </label>
                 <button type="submit" className="btn-primary" style={{ width: '100%' }}>Create Job</button>
               </form>
             </div>
@@ -652,12 +726,36 @@ function JobsView({ runTask, settings }) {
                   <div className="list-item-name">{j.title}</div>
                   <div className="list-item-meta">#{j.id}</div>
                 </div>
+                {j.blind_scoring && <span className="badge badge-purple" title="Blind scoring enabled">Blind</span>}
+                {selectedJob?.id === j.id && (
+                  <button className="btn-ghost btn-sm" title={showJD ? 'Collapse JD' : 'Expand JD'}
+                    onClick={e => { e.stopPropagation(); setShowJD(v => !v) }}>
+                    {showJD ? '▲' : '▼'}
+                  </button>
+                )}
                 <button className="btn-danger btn-sm" title="Delete job"
                   onClick={e => { e.stopPropagation(); handleDeleteJob(j.id) }}>✕</button>
               </div>
             ))}
             {!jobs.length && <div className="list-empty">No jobs yet. Create one above.</div>}
           </div>
+
+          {selectedJob && showJD && (
+            <div className="card-body" style={{ borderTop: '1px solid var(--border)', paddingTop: '10px' }}>
+              <p style={{ fontSize: '0.78rem', color: 'var(--muted)', marginBottom: '6px' }}>Description</p>
+              <p style={{ fontSize: '0.82rem', color: 'var(--text)', whiteSpace: 'pre-wrap', lineHeight: 1.55, marginBottom: '10px' }}>
+                {selectedJob.description}
+              </p>
+              {selectedJob.rubric && (
+                <>
+                  <p style={{ fontSize: '0.78rem', color: 'var(--muted)', marginBottom: '4px' }}>Scoring rubric</p>
+                  <p style={{ fontSize: '0.82rem', color: 'var(--text)', whiteSpace: 'pre-wrap', lineHeight: 1.55 }}>
+                    {selectedJob.rubric}
+                  </p>
+                </>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
@@ -674,7 +772,17 @@ function JobsView({ runTask, settings }) {
               </p>
             </div>
             {selectedJob && (
-              <button className="btn-ghost btn-sm" onClick={() => loadApplications(selectedJob.id)}>↺</button>
+              <div className="btn-row">
+                <button
+                  className={selectedJob.blind_scoring ? 'btn-primary btn-sm' : 'btn-ghost btn-sm'}
+                  title={selectedJob.blind_scoring ? 'Blind scoring ON — click to disable' : 'Blind scoring OFF — click to enable'}
+                  onClick={handleToggleBlind}
+                  style={{ fontVariantNumeric: 'tabular-nums' }}
+                >
+                  {selectedJob.blind_scoring ? '🙈 Blind ON' : '👁 Blind OFF'}
+                </button>
+                <button className="btn-ghost btn-sm" onClick={() => loadApplications(selectedJob.id)}>↺</button>
+              </div>
             )}
           </div>
 
@@ -710,6 +818,11 @@ function JobsView({ runTask, settings }) {
                 <StageBadge stage={app.stage} />
                 {app.score != null && <ScorePill score={app.score} />}
                 <OutreachBadge status={app.outreach_status} />
+                <button
+                  className="btn-ghost btn-sm"
+                  title="View application detail"
+                  onClick={e => { e.stopPropagation(); setDetailApp(app) }}
+                >⋯</button>
               </div>
             ))}
             {selectedJob && !applications.length && (
@@ -744,11 +857,25 @@ function JobsView({ runTask, settings }) {
                 title="Score candidate, draft outreach, optionally send email">
                 ▶ Run Pipeline
               </button>
-              <button className="btn-gray" onClick={handleSendEmail} disabled={!selectedApp}
-                title="Send the drafted outreach email now">
+              <button className="btn-gray" onClick={handleSendEmail}
+                disabled={!selectedApp || !selectedApp.outreach_json}
+                title={!selectedApp?.outreach_json ? 'No outreach draft — run the pipeline first' : 'Send the drafted outreach email now'}>
                 ✉ Send Email
               </button>
             </div>
+          </div>
+
+          <div className="card-body">
+            <p className="section-label">Job description quality</p>
+            <button
+              ref={jdButtonRef}
+              className={jdOpen ? 'btn-primary btn-sm' : 'btn-gray btn-sm'}
+              onClick={handleCheckJD}
+              disabled={!selectedJob}
+              title="Analyse this JD for vague requirements, bias, skill stacking, and more"
+            >
+              🔍 Check JD Quality
+            </button>
           </div>
 
           <div className="card-body">
@@ -788,25 +915,54 @@ function JobsView({ runTask, settings }) {
           </div>
         </div>
 
-        {/* Application detail */}
-        {selectedApp && (
-          <div className="card">
-            <div className="card-header">
-              <p className="card-title">Application Detail</p>
-              <button className="btn-ghost btn-sm" onClick={() => setSelectedApp(null)}>✕</button>
-            </div>
-            <div className="card-body">
-              <div className="info-row">
-                <span>Stage: <StageBadge stage={selectedApp.stage} /></span>
-                {selectedApp.score != null && <span>Score: <ScorePill score={selectedApp.score} /></span>}
-                {selectedApp.outreach_status && <span>Outreach: <OutreachBadge status={selectedApp.outreach_status} /></span>}
+        {/* Application detail modal */}
+        {detailApp && (
+          <div className="modal-backdrop" onMouseDown={e => { if (e.target === e.currentTarget) setDetailApp(null) }}>
+            <div className="modal">
+              <div className="modal-header">
+                <div>
+                  <p className="card-title" style={{ marginBottom: '4px' }}>
+                    {candidateName(detailApp.candidate_id)}
+                  </p>
+                  <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', alignItems: 'center' }}>
+                    <StageBadge stage={detailApp.stage} />
+                    {detailApp.score != null && <ScorePill score={detailApp.score} />}
+                    {detailApp.outreach_status && <OutreachBadge status={detailApp.outreach_status} />}
+                    <span style={{ fontSize: '0.76rem', color: 'var(--muted)' }}>App #{detailApp.id}</span>
+                  </div>
+                </div>
+                <button className="btn-ghost btn-sm" style={{ flexShrink: 0 }} onClick={() => setDetailApp(null)}>✕</button>
               </div>
-              <ScoreBreakdown app={selectedApp} />
+              <div className="modal-body">
+                <ScoreBreakdown app={detailApp} />
+                <RecruiterNotes app={detailApp} onSaved={app => setDetailApp(app)} />
+              </div>
             </div>
-            <RecruiterNotes app={selectedApp} onSaved={app => setSelectedApp(app)} />
           </div>
         )}
       </div>
+
+      {/* JD Quality dropdown — fixed so it's never clipped by overflow */}
+      {jdOpen && jdReport && jdReportJobId === selectedJob?.id && (
+        <div
+          ref={jdDropdownRef}
+          style={{
+            position: 'fixed',
+            top: Math.min(jdPos.top, window.innerHeight - 440),
+            left: Math.min(jdPos.left, window.innerWidth - 356),
+            zIndex: 500,
+            width: '340px',
+            maxHeight: '420px',
+            overflowY: 'auto',
+            background: 'var(--surface)',
+            border: '1px solid var(--border)',
+            borderRadius: '10px',
+            boxShadow: 'var(--shadow-lg)',
+          }}
+        >
+          <JDQualityReport report={jdReport} onClose={() => setJdOpen(false)} />
+        </div>
+      )}
     </div>
   )
 }
@@ -1050,6 +1206,93 @@ function CandidatesView({ runTask }) {
 }
 
 // ─── Settings view ───────────────────────────────────────────────────────────
+
+// ─── JD Quality Report widget ────────────────────────────────────────────────
+
+const SEVERITY_CONFIG = {
+  critical:   { cls: 'badge-red',    label: 'Critical',    color: 'var(--danger, #f04438)' },
+  warning:    { cls: 'badge-yellow', label: 'Warning',     color: 'var(--warning, #f79009)' },
+  suggestion: { cls: 'badge-blue',   label: 'Suggestion',  color: 'var(--primary, #4f46e5)' },
+}
+
+const CATEGORY_LABELS = {
+  vague_requirement:    'Vague Requirement',
+  skill_stacking:       'Skill Stacking',
+  unrealistic_seniority:'Unrealistic Seniority',
+  biased_language:      'Biased Language',
+  missing_information:  'Missing Information',
+  contradictory:        'Contradictory',
+  scope_creep:          'Scope Creep',
+  other:                'Other',
+}
+
+function JDQualityReport({ report, onClose }) {
+  const scoreColor = report.overall_score >= 85 ? 'var(--success, #12b76a)'
+    : report.overall_score >= 70 ? 'var(--warning, #f79009)'
+    : report.overall_score >= 41 ? 'var(--warning-dark, #dc6803)'
+    : 'var(--danger, #f04438)'
+
+  return (
+    <div>
+      <div className="card-header" style={{ padding: '10px 14px 8px' }}>
+        <div>
+          <p className="card-title" style={{ fontSize: '0.85rem' }}>JD Quality Report</p>
+          <p className="card-subtitle">
+            Score:&nbsp;
+            <strong style={{ color: scoreColor }}>{report.overall_score}/100</strong>
+            &nbsp;·&nbsp;{report.issues.length} issue{report.issues.length !== 1 ? 's' : ''}
+          </p>
+        </div>
+        <button className="btn-ghost btn-sm" onClick={onClose}>✕</button>
+      </div>
+
+      <div className="card-body" style={{ paddingTop: '6px' }}>
+        <p style={{ fontSize: '0.82rem', color: 'var(--text)', lineHeight: 1.5, marginBottom: '12px' }}>
+          {report.summary}
+        </p>
+
+        {report.issues.length === 0 && (
+          <p style={{ fontSize: '0.82rem', color: 'var(--muted)' }}>No issues found — this JD looks great.</p>
+        )}
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+          {report.issues.map((issue, i) => {
+            const cfg = SEVERITY_CONFIG[issue.severity] || SEVERITY_CONFIG.suggestion
+            return (
+              <div key={i} style={{
+                borderLeft: `3px solid ${cfg.color}`,
+                paddingLeft: '10px',
+                paddingTop: '4px',
+                paddingBottom: '4px',
+              }}>
+                <div style={{ display: 'flex', gap: '6px', alignItems: 'center', marginBottom: '4px', flexWrap: 'wrap' }}>
+                  <span className={`badge ${cfg.cls}`}>{cfg.label}</span>
+                  <span className="badge badge-gray">{CATEGORY_LABELS[issue.category] || issue.category}</span>
+                </div>
+                {issue.quote && (
+                  <blockquote style={{
+                    margin: '4px 0',
+                    fontSize: '0.78rem',
+                    fontStyle: 'italic',
+                    color: 'var(--muted)',
+                    borderLeft: 'none',
+                    padding: 0,
+                  }}>
+                    "{issue.quote}"
+                  </blockquote>
+                )}
+                <p style={{ fontSize: '0.82rem', margin: '2px 0', color: 'var(--text)' }}>{issue.explanation}</p>
+                <p style={{ fontSize: '0.8rem', margin: '2px 0', color: 'var(--primary)' }}>
+                  ✦ {issue.suggestion}
+                </p>
+              </div>
+            )
+          })}
+        </div>
+      </div>
+    </div>
+  )
+}
 
 // ─── Recruiter Notes widget ──────────────────────────────────────────────────
 

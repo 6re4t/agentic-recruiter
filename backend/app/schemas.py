@@ -6,6 +6,11 @@ class JobCreate(BaseModel):
     title: str
     description: str
     rubric: str
+    blind_scoring: bool = False
+
+
+class JobUpdate(BaseModel):
+    blind_scoring: Optional[bool] = None
 
 
 class CandidateCreate(BaseModel):
@@ -197,3 +202,41 @@ class SearchHit(BaseModel):
     snippet: str         # short excerpt
     score: float         # cosine similarity 0-1
     meta: dict = {}      # extra context (e.g. job title for a resume hit)
+
+
+# ─── JD quality checker ───────────────────────────────────────────────────────
+
+class JDIssue(BaseModel):
+    severity: str = PydField(
+        description="One of: critical, warning, suggestion"
+    )
+    category: str = PydField(
+        description=(
+            "Short category label. One of: vague_requirement, skill_stacking, "
+            "unrealistic_seniority, biased_language, missing_information, "
+            "contradictory, scope_creep, other"
+        )
+    )
+    quote: Optional[str] = PydField(
+        default=None,
+        description="The exact short phrase from the JD that triggered this issue (max 120 chars), or null if it is an omission issue"
+    )
+    explanation: str = PydField(
+        description="One sentence explaining why this is an issue"
+    )
+    suggestion: str = PydField(
+        description="One concrete actionable fix the recruiter can make"
+    )
+
+
+class JDQualityReport(BaseModel):
+    overall_score: int = PydField(
+        ge=0, le=100,
+        description="Overall JD quality score 0-100: 0-40 needs major rework, 41-69 needs improvement, 70-84 good, 85-100 excellent"
+    )
+    summary: str = PydField(
+        description="Two-sentence plain-English summary of the JD's strengths and biggest weaknesses"
+    )
+    issues: List[JDIssue] = PydField(
+        description="List of specific issues found. Empty list if none. Order by severity (critical first, then warning, then suggestion)."
+    )

@@ -3,7 +3,7 @@ from fastapi import HTTPException
 from openai import OpenAI
 
 from .settings import settings
-from .schemas import CandidateExtract, JobAnalysis, ScoreResult, OutreachResponse
+from .schemas import CandidateExtract, JobAnalysis, ScoreResult, OutreachResponse, JDQualityReport
 
 # ─── Embedding (OpenAI text-embedding-3-small via OpenRouter, cached to DB) ──
 EMBED_MODEL = "openai/text-embedding-3-small"
@@ -164,5 +164,39 @@ def draft_outreach(job_title: str, candidate_extracted: dict, sender: dict, tone
             {"role": "user", "content": json.dumps(payload, ensure_ascii=False)},
         ],
         text_format=OutreachResponse,
+    )
+    return resp.output_parsed
+
+
+def check_jd_quality(title: str, description: str, rubric: str) -> JDQualityReport:
+    client = _client()
+    system = (
+        "You are an expert technical recruiter and DEI consultant reviewing a job description "
+        "for quality issues before it is posted publicly.\n\n"
+        "Analyse the job title, description, and scoring rubric for the following problem types:\n"
+        "- vague_requirement: requirements that are too vague to evaluate objectively "
+        '(e.g. "good communicator", "team player", "strong background in X" without specifics)\n'
+        "- skill_stacking: demanding an unrealistic combination of distinct, senior-level skills "
+        '(e.g. "5+ years React AND 5+ years Kubernetes AND 5+ years ML")\n'
+        "- unrealistic_seniority: the years of experience demanded is inconsistent with the seniority "
+        "level stated (e.g. junior role requiring 7+ years)\n"
+        "- biased_language: words or phrases that research shows attract or discourage specific "
+        'demographic groups (e.g. "rockstar", "ninja", "aggressive", "young and dynamic")\n'
+        "- missing_information: a well-written JD should include salary range, location/remote policy, "
+        "required vs nice-to-have split, and clear responsibilities — flag meaningful omissions\n"
+        "- contradictory: requirements that conflict with each other or with the role description\n"
+        "- scope_creep: the role appears to be two or more distinct jobs combined into one\n"
+        "- other: any other significant quality issue\n\n"
+        "Only raise real issues grounded in the text. Do not invent problems. "
+        "If the JD is well-written, return an empty issues list with a high overall_score."
+    )
+    payload = {"title": title, "description": description, "rubric": rubric}
+    resp = client.responses.parse(
+        model=settings.OPENROUTER_MODEL,
+        input=[
+            {"role": "system", "content": system},
+            {"role": "user", "content": json.dumps(payload, ensure_ascii=False)},
+        ],
+        text_format=JDQualityReport,
     )
     return resp.output_parsed

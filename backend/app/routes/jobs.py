@@ -5,8 +5,9 @@ from sqlmodel import Session, select
 
 from ..db import get_session
 from ..models import Job, Application, AuditLog
-from ..schemas import JobCreate
+from ..schemas import JobCreate, JobUpdate
 from ..storage import save_upload_pdf
+from ..agent_llm import check_jd_quality
 
 router = APIRouter(prefix="/jobs", tags=["jobs"])
 
@@ -17,7 +18,12 @@ def audit(session: Session, action: str, entity_type: str, entity_id: int | None
 
 @router.post("")
 def create_job(payload: JobCreate, session: Session = Depends(get_session)):
-    job = Job(title=payload.title, description=payload.description, rubric=payload.rubric)
+    job = Job(
+        title=payload.title,
+        description=payload.description,
+        rubric=payload.rubric,
+        blind_scoring=payload.blind_scoring,
+    )
     session.add(job)
     session.commit()
     session.refresh(job)
@@ -45,6 +51,34 @@ def delete_job(job_id: int, session: Session = Depends(get_session)):
     audit(session, "job_deleted", "job", job_id, job.title)
     session.commit()
     return {"deleted": job_id}
+
+
+@router.patch("/{job_id}")
+def update_job(job_id: int, payload: JobUpdate, session: Session = Depends(get_session)):
+    job = session.get(Job, job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+    if payload.blind_scoring is not None:
+        job.blind_scoring = payload.blind_scoring
+        audit(session, "job_blind_scoring_toggled", "job", job_id,
+              f"blind_scoring={payload.blind_scoring}")
+    session.add(job)
+    session.commit()
+    session.refresh(job)
+    return job
+
+
+@router.post("/{job_id}/check-quality")
+def check_job_quality(job_id: int, session: Session = Depends(get_session)):
+    """Run the JD quality checker on this job. Returns a structured report with issues and an overall score."""
+    job = session.get(Job, job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+    report = check_jd_quality(job.title, job.description, job.rubric)
+    audit(session, "jd_quality_checked", "job", job_id,
+          f"score={report.overall_score} issues={len(report.issues)}")
+    session.commit()
+    return report
 
 
 @router.get("/{job_id}/applications")

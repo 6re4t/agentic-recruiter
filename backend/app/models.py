@@ -10,6 +10,10 @@ class Job(SQLModel, table=True):
     rubric: str
     analyzed_json: Optional[str] = None  # cached output of job_analysis_agent
 
+    # Blind scoring: when True, name/email/location/graduation year are stripped
+    # from the candidate profile before it reaches the scoring LLM.
+    blind_scoring: bool = Field(default=False)
+
     # Semantic search embedding (JSON-encoded float list, cached on first search)
     embedding: Optional[str] = None
 

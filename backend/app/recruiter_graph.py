@@ -1,4 +1,5 @@
 import json
+import re
 import datetime
 from typing import Any, Dict, List
 from typing_extensions import TypedDict, NotRequired
@@ -15,12 +16,53 @@ from .settings import settings
 from .smtp_mailer import send_email, EmailSendError
 
 
+# ---------------------------------------------------------------------------
+# PII redaction helper — strips lines that look like contact info
+# (name headers, email addresses, phone numbers, URLs, location lines)
+# ---------------------------------------------------------------------------
+_PII_PATTERNS = re.compile(
+    r"([\w.+-]+@[\w-]+\.[a-z]{2,})"          # email
+    r"|((\+?\d[\d\s\-().]{6,}\d))"            # phone
+    r"|(https?://\S+)"                         # URL
+    r"|(\blinkedin\.com\S*)"                   # LinkedIn
+    r"|(\bgithub\.com\S*)"                     # GitHub
+, re.IGNORECASE)
+
+_LOCATION_LINE = re.compile(
+    r"^\s*[A-Za-z\s]+,\s+[A-Za-z]{2,}(\s+\d{5})?\s*$"  # "City, State" or "City, Country"
+)
+
+
+def _redact_pii_lines(text: str) -> str:
+    """
+    Remove lines and sub-strings likely to contain identity signals
+    (contact info, location, profile URLs) from a resume excerpt.
+    """
+    lines = []
+    for line in text.splitlines():
+        # Drop the whole line if it's a short contact/location line
+        stripped = line.strip()
+        if not stripped:
+            lines.append("")
+            continue
+        # Drop very short lines that are pure contact info
+        if len(stripped) < 80 and _PII_PATTERNS.search(stripped):
+            continue
+        if _LOCATION_LINE.match(stripped):
+            continue
+        # Inline redaction for any remaining PII tokens mid-line
+        clean = _PII_PATTERNS.sub("[REDACTED]", line)
+        lines.append(clean)
+    return "\n".join(lines)
+
+
 class RecruiterState(TypedDict):
     candidate_id: int
     job_id: int
     application_id: int
 
     require_approval: bool
+    blind_scoring: bool
     sender_name: str
     sender_company: str
     tone: str
@@ -151,13 +193,36 @@ def scoring_agent(state: RecruiterState) -> Dict[str, Any]:
         if not app or not cand or not job:
             return {"error": "Application, Candidate, or Job missing", **_push(state, "scoring_agent:error")}
 
+        blind = state.get("blind_scoring", False)
+
         job_obj = {"title": job.title, "description": job.description, "rubric": job.rubric}
-        cand_obj = {
-            "name": cand.name,
-            "email": cand.email,
-            "extracted": state.get("extracted"),
-            "resume_text_excerpt": (cand.resume_text or "")[:2000],
-        }
+
+        extracted = state.get("extracted") or {}
+        if blind:
+            # Strip all PII — only pass skills, roles, highlights, years_experience, seniority
+            extracted_for_scoring = {
+                "headline": extracted.get("headline", ""),
+                "seniority": extracted.get("seniority", ""),
+                "years_experience": extracted.get("years_experience"),
+                "roles": extracted.get("roles", []),
+                "skills": extracted.get("skills", []),
+                "highlights": extracted.get("highlights", []),
+                "red_flags": extracted.get("red_flags", []),
+                # PII fields intentionally omitted: name, email, location
+            }
+            # Also redact the resume excerpt — strip lines that look like names / contact info
+            resume_excerpt = _redact_pii_lines((cand.resume_text or "")[:2000])
+            cand_obj = {
+                "extracted": extracted_for_scoring,
+                "resume_text_excerpt": resume_excerpt,
+            }
+        else:
+            cand_obj = {
+                "name": cand.name,
+                "email": cand.email,
+                "extracted": extracted,
+                "resume_text_excerpt": (cand.resume_text or "")[:2000],
+            }
 
         scored = score_candidate(
             job_obj,
@@ -172,7 +237,7 @@ def scoring_agent(state: RecruiterState) -> Dict[str, Any]:
         app.updated_at = datetime.datetime.utcnow()
         session.add(app)
         _audit(session, "application_scored", "application", app.id,
-               f"job={job.id} score={app.score}")
+               f"job={job.id} score={app.score} blind={blind}")
         session.commit()
 
     return {"score": scored, **_push(state, "scoring_agent:ok", scored)}
