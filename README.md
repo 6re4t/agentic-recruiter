@@ -151,7 +151,7 @@ npm run dev
 | `POST` | `/outreach/send` | Send drafted email via SMTP |
 | `GET/PUT` | `/settings` | Outreach settings (incl. rejection threshold) |
 | `GET` | `/settings/env` | Live runtime environment info (model, SMTP, DB) |
-| `POST` | `/health/check_jd` | AI quality check on a job description |
+| `POST` | `/jobs/{id}/check-quality` | AI quality check on a job description |
 | `GET` | `/audit` | Audit log |
 | `GET` | `/health/openrouter` | LLM connectivity check |
 
