@@ -30,6 +30,37 @@ def _client() -> OpenAI:
     return OpenAI(
         api_key=settings.OPENROUTER_API_KEY,
         base_url=settings.OPENROUTER_BASE_URL,
+        timeout=60.0,
+    )
+
+
+def _llm_parse(client: OpenAI, model_cls, messages: list, label: str, retries: int = 3):
+    """Call responses.parse with retry. Raises RuntimeError with raw output on final failure."""
+    import time
+    last_error = None
+    for attempt in range(retries):
+        if attempt > 0:
+            time.sleep(1.5 * attempt)
+        try:
+            resp = client.responses.parse(
+                model=settings.OPENROUTER_MODEL,
+                input=messages,
+                text_format=model_cls,
+            )
+        except Exception as exc:
+            last_error = exc
+            continue
+        if resp.output_parsed is not None:
+            return resp.output_parsed
+        raw_parts = []
+        for attr in ("output_text", "output", "error"):
+            val = getattr(resp, attr, None)
+            if val:
+                raw_parts.append(f"{attr}={str(val)[:300]}")
+        last_error = RuntimeError(f"output_parsed=None, {'; '.join(raw_parts) or 'no output'}")
+    raise RuntimeError(
+        f"{label}: model returned an unparseable response after {retries} attempts. "
+        f"Last error: {last_error}"
     )
 
 
@@ -40,15 +71,10 @@ def extract_candidate(resume_text: str) -> CandidateExtract:
         "Only use evidence from the text. If unknown, use null/empty and seniority='unknown'. "
         "Normalize skills (e.g., 'FastAPI' not 'fast api')."
     )
-    resp = client.responses.parse(
-        model=settings.OPENROUTER_MODEL,
-        input=[
-            {"role": "system", "content": system},
-            {"role": "user", "content": resume_text},
-        ],
-        text_format=CandidateExtract,
-    )
-    return resp.output_parsed
+    return _llm_parse(client, CandidateExtract, [
+        {"role": "system", "content": system},
+        {"role": "user", "content": resume_text},
+    ], "extract_candidate")
 
 
 def analyze_job(title: str, description: str, rubric: str) -> JobAnalysis:
@@ -62,15 +88,10 @@ def analyze_job(title: str, description: str, rubric: str) -> JobAnalysis:
         "These are category names only — do NOT put score ranges, numbers, or calibration scales there."
     )
     payload = {"title": title, "description": description, "rubric": rubric}
-    resp = client.responses.parse(
-        model=settings.OPENROUTER_MODEL,
-        input=[
-            {"role": "system", "content": system},
-            {"role": "user", "content": json.dumps(payload, ensure_ascii=False)},
-        ],
-        text_format=JobAnalysis,
-    )
-    return resp.output_parsed
+    return _llm_parse(client, JobAnalysis, [
+        {"role": "system", "content": system},
+        {"role": "user", "content": json.dumps(payload, ensure_ascii=False)},
+    ], "analyze_job")
 
 
 def _normalize_category_names(result: ScoreResult, categories: list) -> ScoreResult:
@@ -132,40 +153,51 @@ def score_candidate(job: dict, candidate: dict, job_analysis: dict | None = None
     payload = {"job": job, "candidate": candidate}
     if job_analysis:
         payload["job_analysis"] = job_analysis
-    resp = client.responses.parse(
-        model=settings.OPENROUTER_MODEL,
-        input=[
-            {"role": "system", "content": system},
-            {"role": "user", "content": json.dumps(payload, ensure_ascii=False)},
-        ],
-        text_format=ScoreResult,
-    )
-    return _normalize_category_names(resp.output_parsed, categories)
+    result = _llm_parse(client, ScoreResult, [
+        {"role": "system", "content": system},
+        {"role": "user", "content": json.dumps(payload, ensure_ascii=False)},
+    ], "score_candidate")
+    return _normalize_category_names(result, categories)
 
 
-def draft_outreach(job_title: str, candidate_extracted: dict, sender: dict, tone: str) -> OutreachResponse:
+def draft_outreach(job_title: str, candidate_extracted: dict, sender: dict, tone: str, rejection: bool = False) -> OutreachResponse:
     client = _client()
-    system = (
-        "Write a recruiting outreach email. "
-        "Rules: (1) Mention only evidence present in candidate_extracted. "
-        "(2) Keep under 140 words. (3) Include a clear CTA for a 15-min chat. "
-        "Return JSON with keys: subject, body."
-    )
+    if rejection:
+        system = (
+            "You are a recruiting coordinator writing a polite, professional rejection email.\n"
+            "Rules:\n"
+            "1. Thank the candidate genuinely for their time and interest.\n"
+            "2. Decline clearly but kindly — do not be vague.\n"
+            "3. Keep the body under 100 words.\n"
+            "4. Do NOT mention scores, rankings, or specific weaknesses.\n"
+            "5. Encourage them to apply for future roles if appropriate.\n"
+            "6. Use natural paragraph breaks — separate the greeting, body, and sign-off with blank lines.\n"
+            "7. subject: one-line email subject. body: full email text with newlines between paragraphs."
+        )
+    else:
+        system = (
+            "You are a recruiting coordinator writing a personalised outreach email.\n"
+            "Rules:\n"
+            "1. Mention only skills/experience explicitly present in candidate_extracted.\n"
+            "2. Keep the body under 140 words.\n"
+            "3. End with a clear CTA inviting a 15-minute chat.\n"
+            "4. Tone must match the requested tone.\n"
+            "5. Use natural paragraph breaks — separate greeting, body, and sign-off with blank lines.\n"
+            "6. subject: one-line email subject. body: full email text with newlines between paragraphs."
+        )
+    slim = {k: candidate_extracted.get(k) for k in (
+        "name", "headline", "seniority", "years_experience", "skills", "highlights"
+    ) if candidate_extracted.get(k)}
     payload = {
         "job_title": job_title,
-        "candidate_extracted": candidate_extracted,
+        "candidate": slim,
         "sender": sender,
         "tone": tone,
     }
-    resp = client.responses.parse(
-        model=settings.OPENROUTER_MODEL,
-        input=[
-            {"role": "system", "content": system},
-            {"role": "user", "content": json.dumps(payload, ensure_ascii=False)},
-        ],
-        text_format=OutreachResponse,
-    )
-    return resp.output_parsed
+    return _llm_parse(client, OutreachResponse, [
+        {"role": "system", "content": system},
+        {"role": "user", "content": json.dumps(payload, ensure_ascii=False)},
+    ], "draft_outreach")
 
 
 def check_jd_quality(title: str, description: str, rubric: str) -> JDQualityReport:
@@ -191,12 +223,7 @@ def check_jd_quality(title: str, description: str, rubric: str) -> JDQualityRepo
         "If the JD is well-written, return an empty issues list with a high overall_score."
     )
     payload = {"title": title, "description": description, "rubric": rubric}
-    resp = client.responses.parse(
-        model=settings.OPENROUTER_MODEL,
-        input=[
-            {"role": "system", "content": system},
-            {"role": "user", "content": json.dumps(payload, ensure_ascii=False)},
-        ],
-        text_format=JDQualityReport,
-    )
-    return resp.output_parsed
+    return _llm_parse(client, JDQualityReport, [
+        {"role": "system", "content": system},
+        {"role": "user", "content": json.dumps(payload, ensure_ascii=False)},
+    ], "check_jd_quality")

@@ -63,6 +63,7 @@ class RecruiterState(TypedDict):
 
     require_approval: bool
     blind_scoring: bool
+    rejection_threshold: int
     sender_name: str
     sender_company: str
     tone: str
@@ -260,15 +261,19 @@ def outreach_agent(state: RecruiterState) -> Dict[str, Any]:
 
         extracted = state.get("extracted") or {}
         sender = {"name": state["sender_name"], "company": state["sender_company"]}
+        score = app.score or 0
+        threshold = state.get("rejection_threshold", 50)
+        is_rejection = score < threshold
 
-        out = draft_outreach(job.title, extracted, sender, state["tone"]).model_dump()
+        out = draft_outreach(job.title, extracted, sender, state["tone"], rejection=is_rejection).model_dump()
 
         app.outreach_json = json.dumps(out, ensure_ascii=False)
         app.outreach_status = "draft"
         app.stage = "Outreach_Draft"
         app.updated_at = datetime.datetime.utcnow()
         session.add(app)
-        _audit(session, "outreach_drafted", "application", app.id, out.get("subject"))
+        _audit(session, "outreach_drafted", "application", app.id,
+               f"{'rejection' if is_rejection else 'outreach'} score={score} threshold={threshold} subject={out.get('subject')}")
         session.commit()
 
     return {"outreach": out, **_push(state, "outreach_agent:ok", out)}

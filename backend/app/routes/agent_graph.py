@@ -71,6 +71,7 @@ def run_graph(payload: GraphRunRequest, request: Request, session: Session = Dep
         "job_id": app_rec.job_id,
         "require_approval": payload.require_approval,
         "blind_scoring": getattr(job, "blind_scoring", False),
+        "rejection_threshold": payload.rejection_threshold,
         "sender_name": payload.sender_name,
         "sender_company": payload.sender_company,
         "tone": payload.tone,

@@ -20,6 +20,7 @@ DEFAULTS = {
     "tone": "friendly and concise",
     "require_approval": True,
     "default_top_k": 3,
+    "rejection_threshold": 50,
 }
 
 
@@ -44,6 +45,7 @@ class OutreachSettings(BaseModel):
     tone: str = DEFAULTS["tone"]
     require_approval: bool = DEFAULTS["require_approval"]
     default_top_k: int = DEFAULTS["default_top_k"]
+    rejection_threshold: int = DEFAULTS["rejection_threshold"]
 
 
 @router.get("", response_model=OutreachSettings)
@@ -56,3 +58,16 @@ def update_settings(payload: OutreachSettings):
     data = payload.model_dump()
     _save(data)
     return data
+
+
+@router.get("/env")
+def get_env_info():
+    """Return read-only runtime environment values for display in the settings UI."""
+    return {
+        "model": app_settings.OPENROUTER_MODEL,
+        "openrouter_base_url": app_settings.OPENROUTER_BASE_URL,
+        "smtp_enabled": app_settings.SMTP_ENABLED,
+        "smtp_host": app_settings.SMTP_HOST,
+        "smtp_from_email": app_settings.SMTP_FROM_EMAIL,
+        "database_url": app_settings.DATABASE_URL,
+    }

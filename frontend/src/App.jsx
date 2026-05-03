@@ -611,6 +611,7 @@ function JobsView({ runTask, settings }) {
           sender_name: settings?.sender_name,
           sender_company: settings?.sender_company,
           tone: settings?.tone,
+          rejection_threshold: settings?.rejection_threshold ?? 50,
         }),
       })
       await loadApplications(selectedJob.id)
@@ -792,6 +793,10 @@ function JobsView({ runTask, settings }) {
               <div className="field">
                 <label>Upload resume PDFs</label>
                 <input type="file" accept="application/pdf" multiple onChange={handleUploadToJob} />
+              </div>
+              <div className="field">
+                <label>Upload entire folder of PDFs</label>
+                <input type="file" webkitdirectory="" directory="" onChange={handleUploadToJob} />
                 <p className="hint">Candidates are auto-created and de-duplicated by email / resume hash.</p>
               </div>
               <div className="field">
@@ -1019,16 +1024,26 @@ function CandidatesView({ runTask }) {
     })
   }
 
+  const [uploadJobId, setUploadJobId] = useState('')
+
   async function handleUploadPdfs(e) {
     const files = Array.from(e.target.files || []).filter(f => f.name.toLowerCase().endsWith('.pdf'))
     if (!files.length) return
     const form = new FormData()
     files.forEach(f => form.append('files', f))
-    await runTask('Upload PDFs', async () => {
-      const out = await api('/candidates/upload_pdfs', { method: 'POST', body: form })
-      setTimeout(loadCandidates, 2500)
-      return out
-    })
+    if (uploadJobId) {
+      await runTask('Upload PDFs to job', async () => {
+        const out = await api(`/jobs/${uploadJobId}/upload-candidates`, { method: 'POST', body: form })
+        setTimeout(loadCandidates, 2500)
+        return out
+      })
+    } else {
+      await runTask('Upload PDFs', async () => {
+        const out = await api('/candidates/upload_pdfs', { method: 'POST', body: form })
+        setTimeout(loadCandidates, 2500)
+        return out
+      })
+    }
     e.target.value = ''
   }
 
@@ -1083,6 +1098,16 @@ function CandidatesView({ runTask }) {
 
               <hr className="divider" />
               <p className="section-label">Or upload PDFs</p>
+              <div className="field">
+                <label>Link to job (optional)</label>
+                <select value={uploadJobId} onChange={e => setUploadJobId(e.target.value)}>
+                  <option value="">— talent pool only (no job) —</option>
+                  {jobs.map(j => (
+                    <option key={j.id} value={j.id}>#{j.id} {j.title}</option>
+                  ))}
+                </select>
+                <p className="hint">If selected, candidates are automatically applied to this job after processing.</p>
+              </div>
               <div className="field">
                 <label>PDF files</label>
                 <input type="file" accept="application/pdf" multiple onChange={handleUploadPdfs} />
@@ -1452,10 +1477,15 @@ const TONE_PRESETS = [
 function SettingsView({ runTask, settings, onSave }) {
   const [form, setForm] = useState(null)
   const [saved, setSaved] = useState(false)
+  const [envInfo, setEnvInfo] = useState(null)
 
   useEffect(() => {
     if (settings && !form) setForm({ ...settings })
   }, [settings])
+
+  useEffect(() => {
+    api('/settings/env').then(setEnvInfo).catch(() => {})
+  }, [])
 
   if (!form) return <div className="card"><div className="card-body" style={{ color: 'var(--muted)' }}>Loading settings…</div></div>
 
@@ -1529,6 +1559,17 @@ function SettingsView({ runTask, settings, onSave }) {
               </div>
             )}
 
+            {field('rejection_threshold', 'Rejection threshold (score)',
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <input type="number" min={0} max={100} value={form.rejection_threshold ?? 50}
+                  onChange={e => setForm(f => ({ ...f, rejection_threshold: Number(e.target.value) }))}
+                  style={{ width: '80px' }} />
+                <span style={{ fontSize: '0.82rem', color: 'var(--muted)' }}>
+                  Candidates scoring below this get a polite decline email instead of outreach (0–100)
+                </span>
+              </div>
+            )}
+
             {field('require_approval', 'Require approval before sending',
               <label className="checkbox-field">
                 <input type="checkbox" checked={form.require_approval}
@@ -1566,6 +1607,35 @@ function SettingsView({ runTask, settings, onSave }) {
               ))}
             </tbody>
           </table>
+        </div>
+      </div>
+
+      <div className="card">
+        <div className="card-header">
+          <div>
+            <p className="card-title">Runtime Environment</p>
+            <p className="card-subtitle">Read from .env at server startup — restart backend to pick up changes</p>
+          </div>
+        </div>
+        <div className="card-body">
+          {envInfo ? (
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
+              <tbody>
+                {Object.entries(envInfo).map(([k, v]) => (
+                  <tr key={k} style={{ borderBottom: '1px solid var(--border)' }}>
+                    <td style={{ padding: '6px 12px 6px 0', color: 'var(--muted)', width: '40%', fontWeight: 500 }}>
+                      {k.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}
+                    </td>
+                    <td style={{ padding: '6px 0', wordBreak: 'break-word', fontFamily: 'monospace', fontSize: '0.8rem' }}>
+                      {typeof v === 'boolean'
+                        ? <span style={{ color: v ? 'var(--success)' : 'var(--danger)', fontWeight: 600 }}>{String(v)}</span>
+                        : String(v)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          ) : <span style={{ color: 'var(--muted)', fontSize: '0.85rem' }}>Loading…</span>}
         </div>
       </div>
 

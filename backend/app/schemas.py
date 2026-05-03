@@ -121,6 +121,7 @@ class GraphRunRequest(BaseModel):
     sender_name: str = "Recruiting Team"
     sender_company: str = "Your Company"
     tone: str = "friendly and concise"
+    rejection_threshold: int = 50
 
 
 class GraphRunResponse(BaseModel):

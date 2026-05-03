@@ -22,6 +22,9 @@ def send_email(to_email: str, subject: str, body: str) -> None:
     msg["To"] = to_email
     msg["Subject"] = subject
     msg.set_content(body)
+    # Add an HTML alternative so email clients render line breaks correctly
+    html_body = "<br>\n".join(line for line in body.splitlines())
+    msg.add_alternative(f"<html><body><p style='font-family:sans-serif;line-height:1.6'>{html_body}</p></body></html>", subtype="html")
 
     try:
         if settings.SMTP_USE_SSL:
