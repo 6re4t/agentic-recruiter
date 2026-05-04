@@ -5,7 +5,7 @@ from sqlmodel import Session, select
 
 from ..db import get_session
 from ..models import Application, Candidate, Job, AuditLog
-from ..schemas import ApplicationCreate, NotesUpdate
+from ..schemas import ApplicationCreate, NotesUpdate, OutreachEdit
 
 router = APIRouter(prefix="/applications", tags=["applications"])
 
@@ -76,6 +76,33 @@ def update_notes(
     app.updated_at = datetime.datetime.utcnow()
     session.add(app)
     _audit(session, "notes_updated", app.id, None)
+    session.commit()
+    session.refresh(app)
+    return app
+
+
+@router.patch("/{application_id}/outreach", response_model=Application)
+def update_outreach(
+    application_id: int,
+    payload: OutreachEdit,
+    session: Session = Depends(get_session),
+):
+    import json, datetime
+    app = session.get(Application, application_id)
+    if not app:
+        raise HTTPException(status_code=404, detail="Application not found")
+    existing = {}
+    if app.outreach_json:
+        try:
+            existing = json.loads(app.outreach_json)
+        except Exception:
+            pass
+    existing["subject"] = payload.subject
+    existing["body"] = payload.body
+    app.outreach_json = json.dumps(existing)
+    app.updated_at = datetime.datetime.utcnow()
+    session.add(app)
+    _audit(session, "outreach_edited", app.id, None)
     session.commit()
     session.refresh(app)
     return app

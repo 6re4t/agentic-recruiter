@@ -152,15 +152,18 @@ class BatchTopKRequest(BaseModel):
     candidate_ids: Optional[List[int]] = None  # if None: use all Ready candidates
     top_k: int = PydField(default=5, ge=1, le=50)
 
+    # "top_k": outreach for top K, rejection for the rest
+    # "threshold": outreach for score >= outreach_threshold, rejection for the rest
+    batch_mode: str = "top_k"
+    outreach_threshold: int = PydField(default=75, ge=0, le=100)
+
     sender_name: str = "Recruiting Team"
     sender_company: str = "Your Company"
     tone: str = "friendly and concise"
 
-    # Skip candidates that already have a score for this job
     skip_scored: bool = False
-
-    # Controls concurrency for LLM calls
     max_concurrency: int = PydField(default=3, ge=1, le=10)
+    rejection_threshold: int = 50
 
 
 class BatchTopKItem(BaseModel):
@@ -183,6 +186,11 @@ class BatchTopKResponse(BaseModel):
 
 class NotesUpdate(BaseModel):
     notes: Optional[str] = None
+
+
+class OutreachEdit(BaseModel):
+    subject: str
+    body: str
 
 
 # ─── Semantic search ──────────────────────────────────────────────────────────

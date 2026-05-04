@@ -194,18 +194,28 @@ def topk_outreach(payload: BatchTopKRequest, session: Session = Depends(get_sess
     session.commit()
 
     # --------------------
-    # Phase 2: draft outreach only for top_k (concurrent)
+    # Phase 2: draft outreach/rejections based on batch_mode (concurrent)
     # --------------------
-    top = results[: payload.top_k]
+    if payload.batch_mode == "threshold":
+        outreach_group = [r for r in results if float(r["score"]["score"]) >= payload.outreach_threshold]
+        rejection_group = [r for r in results if float(r["score"]["score"]) < payload.outreach_threshold]
+    else:
+        outreach_group = results[: payload.top_k]
+        rejection_group = results[payload.top_k :]
 
-    def draft_one(r: Dict[str, Any]) -> Dict[str, Any]:
+    def draft_one(r: Dict[str, Any], rejection: bool = False) -> Dict[str, Any]:
         sender = {"name": payload.sender_name, "company": payload.sender_company}
-        out = draft_outreach(job.title, r["extracted"], sender, payload.tone).model_dump()
-        return {"application_id": r["application_id"], "candidate_id": r["candidate_id"], "outreach": out}
+        out = draft_outreach(job.title, r["extracted"], sender, payload.tone, rejection=rejection).model_dump()
+        return {"application_id": r["application_id"], "candidate_id": r["candidate_id"], "outreach": out, "rejection": rejection}
+
+    all_draft_work = (
+        [(r, False) for r in outreach_group] +
+        [(r, True)  for r in rejection_group]
+    )
 
     outreach_results: List[Dict[str, Any]] = []
-    with ThreadPoolExecutor(max_workers=min(payload.max_concurrency, max(1, len(top)))) as ex:
-        futures = [ex.submit(draft_one, r) for r in top]
+    with ThreadPoolExecutor(max_workers=payload.max_concurrency) as ex:
+        futures = [ex.submit(draft_one, r, is_rej) for r, is_rej in all_draft_work]
         for f in as_completed(futures):
             outreach_results.append(f.result())
 
@@ -216,10 +226,11 @@ def topk_outreach(payload: BatchTopKRequest, session: Session = Depends(get_sess
             continue
         app_rec.outreach_json = json.dumps(o["outreach"], ensure_ascii=False)
         app_rec.outreach_status = "draft"
-        app_rec.stage = "Outreach_Draft"
+        app_rec.stage = "Outreach_Draft" if not o["rejection"] else "Scored"
         app_rec.updated_at = datetime.datetime.utcnow()
         session.add(app_rec)
-        audit(session, "outreach_drafted", "application", app_rec.id, o["outreach"].get("subject"))
+        action = "rejection_drafted" if o["rejection"] else "outreach_drafted"
+        audit(session, action, "application", app_rec.id, o["outreach"].get("subject"))
 
     session.commit()
 
@@ -241,6 +252,6 @@ def topk_outreach(payload: BatchTopKRequest, session: Session = Depends(get_sess
     return BatchTopKResponse(
         job_id=payload.job_id,
         processed=len(results),
-        top_k=min(payload.top_k, len(results)),
+        top_k=len(outreach_group),
         ranked=ranked_items,
     )

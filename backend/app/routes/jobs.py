@@ -86,7 +86,7 @@ def list_job_applications(job_id: int, session: Session = Depends(get_session)):
     if not session.get(Job, job_id):
         raise HTTPException(status_code=404, detail="Job not found")
     return session.exec(
-        select(Application).where(Application.job_id == job_id).order_by(Application.created_at.desc())
+        select(Application).where(Application.job_id == job_id).order_by(Application.created_at.asc())
     ).all()
 
 

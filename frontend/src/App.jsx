@@ -447,31 +447,14 @@ function JobsView({ runTask, settings }) {
   const [requireApproval, setRequireApproval] = useState(true)
   const [resumeRunId, setResumeRunId] = useState('')
   const [topK, setTopK] = useState(3)
+  const [batchMode, setBatchMode] = useState('top_k')
+  const [outreachThreshold, setOutreachThreshold] = useState(75)
   const [skipScored, setSkipScored] = useState(false)
   const [jdReport, setJdReport] = useState(null)
   const [jdReportJobId, setJdReportJobId] = useState(null)
-  const [jdOpen, setJdOpen] = useState(false)
-  const [jdPos, setJdPos] = useState({ top: 0, left: 0 })
-  const jdButtonRef = useRef(null)
-  const jdDropdownRef = useRef(null)
 
-  // Close dropdown when clicking outside
-  useEffect(() => {
-    if (!jdOpen) return
-    function handleClickOutside(e) {
-      if (
-        jdDropdownRef.current && !jdDropdownRef.current.contains(e.target) &&
-        jdButtonRef.current && !jdButtonRef.current.contains(e.target)
-      ) {
-        setJdOpen(false)
-      }
-    }
-    document.addEventListener('mousedown', handleClickOutside)
-    return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [jdOpen])
-
-  // Close if job changes
-  useEffect(() => { setJdOpen(false) }, [selectedJob?.id])
+  // Clear report when job changes
+  useEffect(() => { setJdReport(null); setJdReportJobId(null) }, [selectedJob?.id])
 
   useEffect(() => { loadJobs() }, [])
   useEffect(() => {
@@ -535,21 +518,10 @@ function JobsView({ runTask, settings }) {
 
   async function handleCheckJD() {
     if (!selectedJob) return
-    // If we already have a report for this job, just toggle the panel
-    if (jdReport && jdReportJobId === selectedJob.id) {
-      const rect = jdButtonRef.current?.getBoundingClientRect()
-      if (rect) setJdPos({ top: rect.bottom + 6, left: rect.left })
-      setJdOpen(v => !v)
-      return
-    }
-    // Fetch fresh report then open
     await runTask('Check JD quality', async () => {
       const report = await api(`/jobs/${selectedJob.id}/check-quality`, { method: 'POST' })
       setJdReport(report)
       setJdReportJobId(selectedJob.id)
-      const rect = jdButtonRef.current?.getBoundingClientRect()
-      if (rect) setJdPos({ top: rect.bottom + 6, left: rect.left })
-      setJdOpen(true)
       return report
     })
   }
@@ -621,17 +593,21 @@ function JobsView({ runTask, settings }) {
 
   async function handleBatchTopK() {
     if (!selectedJob) return
-    await runTask(`Batch Top-${topK}`, async () => {
+    const label = batchMode === 'top_k' ? `Batch Top-${topK}` : `Batch (score ≥ ${outreachThreshold})`
+    await runTask(label, async () => {
       const out = await api('/agent/batch/topk_outreach', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           job_id: selectedJob.id,
+          batch_mode: batchMode,
           top_k: Number(topK) || settings?.default_top_k || 3,
+          outreach_threshold: Number(outreachThreshold),
           sender_name: settings?.sender_name,
           sender_company: settings?.sender_company,
           tone: settings?.tone,
           skip_scored: skipScored,
+          rejection_threshold: settings?.rejection_threshold ?? 50,
         }),
       })
       await loadApplications(selectedJob.id)
@@ -780,7 +756,7 @@ function JobsView({ runTask, settings }) {
                   onClick={handleToggleBlind}
                   style={{ fontVariantNumeric: 'tabular-nums' }}
                 >
-                  {selectedJob.blind_scoring ? '🙈 Blind ON' : '👁 Blind OFF'}
+                  {selectedJob.blind_scoring ? 'Blind ON' : 'Blind OFF'}
                 </button>
                 <button className="btn-ghost btn-sm" onClick={() => loadApplications(selectedJob.id)}>↺</button>
               </div>
@@ -812,13 +788,13 @@ function JobsView({ runTask, settings }) {
           )}
 
           <div className="scroll-list" style={{ maxHeight: selectedJob ? '260px' : '340px' }}>
-            {applications.map(app => (
+            {applications.map((app, idx) => (
               <div key={app.id}
                 className={`list-item ${selectedApp?.id === app.id ? 'selected' : ''}`}
                 onClick={() => setSelectedApp(app)}>
                 <div className="list-item-main">
                   <div className="list-item-name">{candidateName(app.candidate_id)}</div>
-                  <div className="list-item-meta">App #{app.id}</div>
+                  <div className="list-item-meta">#{idx + 1}</div>
                 </div>
                 <StageBadge stage={app.stage} />
                 {app.score != null && <ScorePill score={app.score} />}
@@ -847,7 +823,7 @@ function JobsView({ runTask, settings }) {
             <div>
               <p className="card-title">AI Actions</p>
               <p className="card-subtitle">
-                {selectedApp ? `App #${selectedApp.id} — ${candidateName(selectedApp.candidate_id)}` : 'Select an application'}
+                {selectedApp ? `#${applications.findIndex(a => a.id === selectedApp.id) + 1} — ${candidateName(selectedApp.candidate_id)}` : 'Select an application'}
               </p>
             </div>
           </div>
@@ -871,34 +847,48 @@ function JobsView({ runTask, settings }) {
           </div>
 
           <div className="card-body">
-            <p className="section-label">Job description quality</p>
-            <button
-              ref={jdButtonRef}
-              className={jdOpen ? 'btn-primary btn-sm' : 'btn-gray btn-sm'}
-              onClick={handleCheckJD}
-              disabled={!selectedJob}
-              title="Analyse this JD for vague requirements, bias, skill stacking, and more"
-            >
-              🔍 Check JD Quality
-            </button>
-          </div>
-
-          <div className="card-body">
             <p className="section-label">Batch — score all applicants</p>
+            <div style={{ display: 'flex', gap: '6px', marginBottom: '8px' }}>
+              <button
+                type="button"
+                className={batchMode === 'top_k' ? 'btn-primary btn-sm' : 'btn-gray btn-sm'}
+                onClick={() => setBatchMode('top_k')}>
+                Top K
+              </button>
+              <button
+                type="button"
+                className={batchMode === 'threshold' ? 'btn-primary btn-sm' : 'btn-gray btn-sm'}
+                onClick={() => setBatchMode('threshold')}>
+                Score threshold
+              </button>
+            </div>
             <div className="btn-row" style={{ alignItems: 'center' }}>
-              <label style={{ margin: 0, fontSize: '0.8rem', whiteSpace: 'nowrap' }}>Top K</label>
-              <input type="number" min={1} max={50} value={topK}
-                onChange={e => setTopK(e.target.value)} style={{ width: '64px' }} />
-              <button className="btn-gray" onClick={handleBatchTopK} disabled={!selectedJob}
-                title="Score all applicants, draft outreach for top K">
-                ⚡ Batch Top-K
+              {batchMode === 'top_k' ? (
+                <>
+                  <label style={{ margin: 0, fontSize: '0.8rem', whiteSpace: 'nowrap' }}>Top K</label>
+                  <input type="number" min={1} max={50} value={topK}
+                    onChange={e => setTopK(e.target.value)} style={{ width: '64px' }} />
+                </>
+              ) : (
+                <>
+                  <label style={{ margin: 0, fontSize: '0.8rem', whiteSpace: 'nowrap' }}>Min score</label>
+                  <input type="number" min={0} max={100} value={outreachThreshold}
+                    onChange={e => setOutreachThreshold(e.target.value)} style={{ width: '64px' }} />
+                </>
+              )}
+              <button className="btn-gray" onClick={handleBatchTopK} disabled={!selectedJob}>
+                Run Batch
               </button>
               <label style={{ margin: 0, fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '4px', whiteSpace: 'nowrap' }}>
                 <input type="checkbox" checked={skipScored} onChange={e => setSkipScored(e.target.checked)} />
                 Skip scored
               </label>
             </div>
-            <p className="hint" style={{ marginTop: '6px' }}>Scores every applicant for this job and drafts outreach for the top K.</p>
+            <p className="hint" style={{ marginTop: '6px' }}>
+              {batchMode === 'top_k'
+                ? `Scores all applicants, drafts outreach for the top ${topK}, polite rejections for the rest.`
+                : `Scores all applicants, drafts outreach for scores ≥ ${outreachThreshold}, polite rejections for the rest.`}
+            </p>
           </div>
 
           <div className="card-body">
@@ -920,6 +910,39 @@ function JobsView({ runTask, settings }) {
           </div>
         </div>
 
+        {/* JD Quality report */}
+        <div className="card">
+          <div className="card-header">
+            <div>
+              <p className="card-title">JD Quality</p>
+              {jdReport && jdReportJobId === selectedJob?.id && (
+                <p className="card-subtitle">
+                  Score: <strong style={{ color: jdReport.overall_score >= 85 ? 'var(--success)' : jdReport.overall_score >= 70 ? 'var(--warning)' : 'var(--danger)' }}>{jdReport.overall_score}/100</strong>
+                  &nbsp;·&nbsp;{jdReport.issues.length} issue{jdReport.issues.length !== 1 ? 's' : ''}
+                </p>
+              )}
+            </div>
+            <button
+              className="btn-gray btn-sm"
+              onClick={handleCheckJD}
+              disabled={!selectedJob}
+              title="Analyse this JD for vague requirements, bias, skill stacking, and more"
+            >
+              {jdReport && jdReportJobId === selectedJob?.id ? '↺ Re-run' : 'Check JD'}
+            </button>
+          </div>
+          {jdReport && jdReportJobId === selectedJob?.id
+            ? <JDQualityReport report={jdReport} />
+            : (
+              <div className="card-body">
+                <p style={{ fontSize: '0.82rem', color: 'var(--muted)', margin: 0 }}>
+                  {selectedJob ? 'Click Check JD to analyse this job description.' : 'Select a job first.'}
+                </p>
+              </div>
+            )
+          }
+        </div>
+
         {/* Application detail modal */}
         {detailApp && (
           <div className="modal-backdrop" onMouseDown={e => { if (e.target === e.currentTarget) setDetailApp(null) }}>
@@ -933,13 +956,14 @@ function JobsView({ runTask, settings }) {
                     <StageBadge stage={detailApp.stage} />
                     {detailApp.score != null && <ScorePill score={detailApp.score} />}
                     {detailApp.outreach_status && <OutreachBadge status={detailApp.outreach_status} />}
-                    <span style={{ fontSize: '0.76rem', color: 'var(--muted)' }}>App #{detailApp.id}</span>
+                    <span style={{ fontSize: '0.76rem', color: 'var(--muted)' }}>#{applications.findIndex(a => a.id === detailApp.id) + 1}</span>
                   </div>
                 </div>
                 <button className="btn-ghost btn-sm" style={{ flexShrink: 0 }} onClick={() => setDetailApp(null)}>✕</button>
               </div>
               <div className="modal-body">
                 <ScoreBreakdown app={detailApp} />
+                <OutreachDraft app={detailApp} onSaved={app => setDetailApp(app)} />
                 <RecruiterNotes app={detailApp} onSaved={app => setDetailApp(app)} />
               </div>
             </div>
@@ -947,27 +971,7 @@ function JobsView({ runTask, settings }) {
         )}
       </div>
 
-      {/* JD Quality dropdown — fixed so it's never clipped by overflow */}
-      {jdOpen && jdReport && jdReportJobId === selectedJob?.id && (
-        <div
-          ref={jdDropdownRef}
-          style={{
-            position: 'fixed',
-            top: Math.min(jdPos.top, window.innerHeight - 440),
-            left: Math.min(jdPos.left, window.innerWidth - 356),
-            zIndex: 500,
-            width: '340px',
-            maxHeight: '420px',
-            overflowY: 'auto',
-            background: 'var(--surface)',
-            border: '1px solid var(--border)',
-            borderRadius: '10px',
-            boxShadow: 'var(--shadow-lg)',
-          }}
-        >
-          <JDQualityReport report={jdReport} onClose={() => setJdOpen(false)} />
-        </div>
-      )}
+
     </div>
   )
 }
@@ -1188,14 +1192,14 @@ function CandidatesView({ runTask }) {
                 <button className="btn-ghost btn-sm" onClick={() => loadCandidateApps(selectedCandidate.id)}>↺</button>
               </div>
               <div className="scroll-list">
-                {candidateApps.map(app => (
+                {candidateApps.map((app, idx) => (
                   <div key={app.id}
                     className={`list-item ${selectedCandidateApp?.id === app.id ? 'selected' : ''}`}
                     onClick={() => setSelectedCandidateApp(selectedCandidateApp?.id === app.id ? null : app)}
                     style={{ cursor: 'pointer' }}>
                     <div className="list-item-main">
                       <div className="list-item-name">{jobTitle(app.job_id)}</div>
-                      <div className="list-item-meta">App #{app.id}</div>
+                      <div className="list-item-meta">#{idx + 1}</div>
                     </div>
                     <StageBadge stage={app.stage} />
                     {app.score != null && <ScorePill score={app.score} />}
@@ -1251,26 +1255,9 @@ const CATEGORY_LABELS = {
   other:                'Other',
 }
 
-function JDQualityReport({ report, onClose }) {
-  const scoreColor = report.overall_score >= 85 ? 'var(--success, #12b76a)'
-    : report.overall_score >= 70 ? 'var(--warning, #f79009)'
-    : report.overall_score >= 41 ? 'var(--warning-dark, #dc6803)'
-    : 'var(--danger, #f04438)'
-
+function JDQualityReport({ report }) {
   return (
     <div>
-      <div className="card-header" style={{ padding: '10px 14px 8px' }}>
-        <div>
-          <p className="card-title" style={{ fontSize: '0.85rem' }}>JD Quality Report</p>
-          <p className="card-subtitle">
-            Score:&nbsp;
-            <strong style={{ color: scoreColor }}>{report.overall_score}/100</strong>
-            &nbsp;·&nbsp;{report.issues.length} issue{report.issues.length !== 1 ? 's' : ''}
-          </p>
-        </div>
-        <button className="btn-ghost btn-sm" onClick={onClose}>✕</button>
-      </div>
-
       <div className="card-body" style={{ paddingTop: '6px' }}>
         <p style={{ fontSize: '0.82rem', color: 'var(--text)', lineHeight: 1.5, marginBottom: '12px' }}>
           {report.summary}
@@ -1366,9 +1353,96 @@ function RecruiterNotes({ app, onSaved }) {
   )
 }
 
+// ─── Outreach Draft editor ────────────────────────────────────────────────────
+
+function OutreachDraft({ app, onSaved }) {
+  const parsed = (() => { try { return app?.outreach_json ? JSON.parse(app.outreach_json) : null } catch { return null } })()
+  const [subject, setSubject] = useState(parsed?.subject ?? '')
+  const [body, setBody] = useState(parsed?.body ?? '')
+  const [editing, setEditing] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState(false)
+
+  useEffect(() => {
+    const p = (() => { try { return app?.outreach_json ? JSON.parse(app.outreach_json) : null } catch { return null } })()
+    setSubject(p?.subject ?? '')
+    setBody(p?.body ?? '')
+    setEditing(false)
+  }, [app?.id, app?.outreach_json])
+
+  if (!parsed) return null
+
+  async function handleSave() {
+    setSaving(true)
+    try {
+      const updated = await api(`/applications/${app.id}/outreach`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ subject, body }),
+      })
+      if (onSaved) onSaved(updated)
+      setSaved(true)
+      setEditing(false)
+      setTimeout(() => setSaved(false), 2000)
+    } catch (e) {
+      alert('Failed to save: ' + e.message)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div className="card-body" style={{ borderTop: '1px solid var(--border)' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+        <p className="section-label" style={{ margin: 0 }}>
+          {parsed.is_rejection ? 'Rejection Email Draft' : 'Outreach Email Draft'}
+        </p>
+        <div className="btn-row" style={{ gap: '6px' }}>
+          {editing ? (
+            <>
+              <button className="btn-ghost btn-sm" onClick={() => { setEditing(false); setSubject(parsed?.subject ?? ''); setBody(parsed?.body ?? '') }}>Cancel</button>
+              <button className="btn-primary btn-sm" onClick={handleSave} disabled={saving}>
+                {saving ? 'Saving…' : saved ? '✓ Saved' : 'Save'}
+              </button>
+            </>
+          ) : (
+            <button className="btn-ghost btn-sm" onClick={() => setEditing(true)}>Edit</button>
+          )}
+        </div>
+      </div>
+
+      {editing ? (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          <div className="field" style={{ margin: 0 }}>
+            <label>Subject</label>
+            <input value={subject} onChange={e => setSubject(e.target.value)} />
+          </div>
+          <div className="field" style={{ margin: 0 }}>
+            <label>Body</label>
+            <textarea value={body} onChange={e => setBody(e.target.value)} rows={10}
+              style={{ resize: 'vertical', fontFamily: 'inherit', fontSize: '0.85rem' }} />
+          </div>
+        </div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+          <div style={{ fontSize: '0.82rem', color: 'var(--muted)', fontWeight: 500 }}>
+            Subject: <span style={{ color: 'var(--text)', fontWeight: 600 }}>{subject}</span>
+          </div>
+          <pre style={{
+            margin: 0, padding: '10px 12px',
+            background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: '6px',
+            fontSize: '0.82rem', lineHeight: 1.6, whiteSpace: 'pre-wrap', wordBreak: 'break-word',
+            color: 'var(--text)', fontFamily: 'inherit',
+          }}>{body}</pre>
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ─── Search view ─────────────────────────────────────────────────────────────
 
-const SEARCH_TYPE_LABELS = { resumes: '📄 Resumes', jobs: '💼 Jobs', notes: '📝 Notes' }
+const SEARCH_TYPE_LABELS = { resumes: 'Resumes', jobs: 'Jobs', notes: 'Notes' }
 const TYPE_BADGE = { resume: 'badge-blue', job: 'badge-purple', note: 'badge-green' }
 
 function SearchView() {
@@ -1416,7 +1490,7 @@ function SearchView() {
               autoFocus
             />
             <button className="btn-primary" type="submit" disabled={loading || !q.trim()}>
-              {loading ? 'Searching…' : '🔍 Search'}
+              {loading ? 'Searching…' : 'Search'}
             </button>
           </form>
           <div style={{ display: 'flex', gap: '12px', marginTop: '10px', flexWrap: 'wrap' }}>
