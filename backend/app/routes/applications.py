@@ -106,3 +106,15 @@ def update_outreach(
     session.commit()
     session.refresh(app)
     return app
+
+
+@router.delete("/{application_id}", status_code=204)
+def delete_application(application_id: int, session: Session = Depends(get_session)):
+    app = session.get(Application, application_id)
+    if not app:
+        raise HTTPException(status_code=404, detail="Application not found")
+    _audit(session, "application_removed", app.id,
+           f"candidate={app.candidate_id} job={app.job_id}")
+    session.commit()
+    session.delete(app)
+    session.commit()

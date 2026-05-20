@@ -1,4 +1,4 @@
-﻿import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import './App.css'
 import GraphView from './GraphView.jsx'
 import ChatView from './ChatView.jsx'
@@ -317,6 +317,19 @@ const TerminalIcon = () => (
   </svg>
 )
 
+const MoonIcon = () => (
+  <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+    <path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z" />
+  </svg>
+)
+
+const SunIcon = () => (
+  <svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <circle cx="10" cy="10" r="4" />
+    <path d="M10 2v2M10 16v2M4 10H2M18 10h-2M5.64 5.64l1.42 1.42M12.93 12.93l1.42 1.42M5.64 14.36l1.42-1.42M12.93 7.07l1.42-1.42" />
+  </svg>
+)
+
 // ─── App shell ──────────────────────────────────────────────────────────────
 
 export default function App() {
@@ -325,10 +338,18 @@ export default function App() {
   const [result, setResult] = useState(null)
   const [showResult, setShowResult] = useState(false)
   const [settings, setSettings] = useState(null)  // loaded from /settings
+  const [theme, setTheme] = useState(() => localStorage.getItem('theme') || 'light')
 
   useEffect(() => {
     api('/settings').then(s => setSettings(s)).catch(() => {})
   }, [])
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme)
+    localStorage.setItem('theme', theme)
+  }, [theme])
+
+  const toggleTheme = () => setTheme(prev => prev === 'light' ? 'dark' : 'light')
 
   async function saveSettings(updated) {
     const saved = await api('/settings', {
@@ -355,77 +376,98 @@ export default function App() {
 
   return (
     <div className="app-shell">
-      <header className="topbar">
-          <div className="topbar-brand">
+      <aside className="sidebar">
+        <div className="sidebar-brand">
+          <div className="sidebar-logo">
             <LogoMark />
-            <span className="topbar-title">Agentic Recruiter</span>
           </div>
-          <nav className="topbar-nav">
-            <button className={`tab-btn ${view === 'jobs' ? 'active' : ''}`} onClick={() => setView('jobs')}>
-              <BriefcaseIcon /> Jobs
+          <span className="sidebar-title">Agentic Recruiter</span>
+        </div>
+        <nav className="sidebar-nav">
+          <button className={`tab-btn ${view === 'jobs' ? 'active' : ''}`} onClick={() => setView('jobs')}>
+            <BriefcaseIcon /> Jobs
+          </button>
+          <button className={`tab-btn ${view === 'candidates' ? 'active' : ''}`} onClick={() => setView('candidates')}>
+            <UsersIcon /> Candidates
+          </button>
+          <button className={`tab-btn ${view === 'search' ? 'active' : ''}`} onClick={() => setView('search')}>
+            <SearchIconNav /> Search
+          </button>
+          <button className={`tab-btn ${view === 'graph' ? 'active' : ''}`} onClick={() => setView('graph')}>
+            <GraphIconNav /> Graph
+          </button>
+          <button className={`tab-btn ${view === 'chat' ? 'active' : ''}`} onClick={() => setView('chat')}>
+            <ChatIconNav /> Chat
+          </button>
+          <button className={`tab-btn ${view === 'settings' ? 'active' : ''}`} onClick={() => setView('settings')}>
+            <SettingsIconNav /> Settings
+          </button>
+        </nav>
+        <div className="sidebar-footer">
+          <div className="sidebar-status-box">
+            <span className="sidebar-status-label">System Status</span>
+            <span className={`sidebar-status-badge ${statusClass(status)}`} title={status}>{status}</span>
+          </div>
+        </div>
+      </aside>
+
+      <div className="main-content">
+        <header className="content-header">
+          <h1 className="page-title">{view.charAt(0).toUpperCase() + view.slice(1)} Dashboard</h1>
+          <div className="content-header-end">
+            <button
+              className="btn-icon"
+              onClick={toggleTheme}
+              title={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`}
+              style={{ marginRight: '8px' }}
+            >
+              {theme === 'light' ? <MoonIcon /> : <SunIcon />}
             </button>
-            <button className={`tab-btn ${view === 'candidates' ? 'active' : ''}`} onClick={() => setView('candidates')}>
-              <UsersIcon /> Candidates
-            </button>
-            <button className={`tab-btn ${view === 'search' ? 'active' : ''}`} onClick={() => setView('search')}>
-              <SearchIconNav /> Search
-            </button>
-            <button className={`tab-btn ${view === 'graph' ? 'active' : ''}`} onClick={() => setView('graph')}>
-              <GraphIconNav /> Graph
-            </button>
-            <button className={`tab-btn ${view === 'chat' ? 'active' : ''}`} onClick={() => setView('chat')}>
-              <ChatIconNav /> Chat
-            </button>
-            <button className={`tab-btn ${view === 'settings' ? 'active' : ''}`} onClick={() => setView('settings')}>
-              <SettingsIconNav /> Settings
-            </button>
-          </nav>
-          <div className="topbar-end">
-            <span className={`topbar-status ${statusClass(status)}`}>{status}</span>
             <button
               className="btn-icon"
               onClick={() => setShowResult(v => !v)}
               title="Toggle last API result"
               aria-pressed={showResult}
-              style={showResult ? { color: 'var(--primary)', background: 'var(--primary-light)' } : undefined}
+              style={showResult ? { color: 'var(--primary)', background: 'var(--primary-light)', borderColor: 'var(--primary-border)' } : undefined}
             >
-              <TerminalIcon />
+              <TerminalIcon /> Console
             </button>
           </div>
         </header>
 
-      <main className="page">
-        {showResult && (
-          <div className="card" style={{ marginBottom: '16px' }}>
-            <div className="card-header">
-              <span className="card-title">Last API Result</span>
-              <button className="btn-ghost btn-sm" onClick={() => setShowResult(false)}>✕ Close</button>
+        <main className="page">
+          {showResult && (
+            <div className="card" style={{ marginBottom: '24px' }}>
+              <div className="card-header">
+                <span className="card-title">Last API Result</span>
+                <button className="btn-ghost btn-sm" onClick={() => setShowResult(false)}>✕ Close</button>
+              </div>
+              <div className="card-body" style={{ overflowX: 'auto' }}>
+                {result
+                  ? <ResultViewer data={result} />
+                  : <span style={{ color: 'var(--muted)', fontSize: '0.82rem' }}>No result yet</span>}
+              </div>
             </div>
-            <div className="card-body" style={{ overflowX: 'auto' }}>
-              {result
-                ? <ResultViewer data={result} />
-                : <span style={{ color: 'var(--muted)', fontSize: '0.82rem' }}>No result yet</span>}
-            </div>
+          )}
+
+          {/* ChatView is always mounted so conversation history survives tab switches */}
+          <div style={{ display: view === 'chat' ? 'block' : 'none' }}>
+            <ChatView />
           </div>
-        )}
 
-        {/* ChatView is always mounted so conversation history survives tab switches */}
-        <div style={{ display: view === 'chat' ? 'block' : 'none' }}>
-          <ChatView />
-        </div>
-
-        {view === 'jobs'
-          ? <JobsView runTask={runTask} settings={settings} />
-          : view === 'candidates'
-          ? <CandidatesView runTask={runTask} />
-          : view === 'search'
-          ? <SearchView runTask={runTask} />
-          : view === 'graph'
-          ? <GraphView />
-          : view === 'chat'
-          ? null
-          : <SettingsView runTask={runTask} settings={settings} onSave={saveSettings} />}
-      </main>
+          {view === 'jobs'
+            ? <JobsView runTask={runTask} settings={settings} />
+            : view === 'candidates'
+            ? <CandidatesView runTask={runTask} />
+            : view === 'search'
+            ? <SearchView runTask={runTask} />
+            : view === 'graph'
+            ? <GraphView />
+            : view === 'chat'
+            ? null
+            : <SettingsView runTask={runTask} settings={settings} onSave={saveSettings} />}
+        </main>
+      </div>
     </div>
   )
 }
@@ -450,11 +492,7 @@ function JobsView({ runTask, settings }) {
   const [batchMode, setBatchMode] = useState('top_k')
   const [outreachThreshold, setOutreachThreshold] = useState(75)
   const [skipScored, setSkipScored] = useState(false)
-  const [jdReport, setJdReport] = useState(null)
-  const [jdReportJobId, setJdReportJobId] = useState(null)
-
-  // Clear report when job changes
-  useEffect(() => { setJdReport(null); setJdReportJobId(null) }, [selectedJob?.id])
+  const [jdReports, setJdReports] = useState({}) // jobId -> report
 
   useEffect(() => { loadJobs() }, [])
   useEffect(() => {
@@ -490,6 +528,16 @@ function JobsView({ runTask, settings }) {
     })
   }
 
+  async function handleRemoveApplication(appId) {
+    if (!window.confirm('Remove this applicant from the job? The candidate stays in the talent pool.')) return
+    await runTask('Remove applicant', async () => {
+      await api(`/applications/${appId}`, { method: 'DELETE' })
+      if (selectedApp?.id === appId) setSelectedApp(null)
+      if (detailApp?.id === appId) setDetailApp(null)
+      await loadApplications(selectedJob.id)
+    })
+  }
+
   async function loadCandidates() {
     const data = await api('/candidates?limit=200')
     setCandidates(data)
@@ -520,8 +568,7 @@ function JobsView({ runTask, settings }) {
     if (!selectedJob) return
     await runTask('Check JD quality', async () => {
       const report = await api(`/jobs/${selectedJob.id}/check-quality`, { method: 'POST' })
-      setJdReport(report)
-      setJdReportJobId(selectedJob.id)
+      setJdReports(prev => ({ ...prev, [selectedJob.id]: report }))
       return report
     })
   }
@@ -765,15 +812,28 @@ function JobsView({ runTask, settings }) {
 
           {selectedJob && (
             <div className="card-body">
-              <p className="section-label">Add candidates to this job</p>
-              <div className="field">
-                <label>Upload resume PDFs</label>
-                <input type="file" accept="application/pdf" multiple onChange={handleUploadToJob} />
-              </div>
-              <div className="field">
-                <label>Upload entire folder of PDFs</label>
-                <input type="file" webkitdirectory="" directory="" onChange={handleUploadToJob} />
-                <p className="hint">Candidates are auto-created and de-duplicated by email / resume hash.</p>
+              <p className="section-label" style={{ marginBottom: '14px' }}>Add candidates to this job</p>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px' }}>
+                <label className="upload-zone">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ display: 'block', margin: '0 auto 8px' }}>
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                    <polyline points="17 8 12 3 7 8" />
+                    <line x1="12" y1="3" x2="12" y2="15" />
+                  </svg>
+                  <span>Upload PDFs</span>
+                  <p>Single or multiple resumes</p>
+                  <input type="file" accept="application/pdf" multiple onChange={handleUploadToJob} style={{ display: 'none' }} />
+                </label>
+                <label className="upload-zone">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ display: 'block', margin: '0 auto 8px' }}>
+                    <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+                    <line x1="12" y1="11" x2="12" y2="17" />
+                    <line x1="9" y1="14" x2="15" y2="14" />
+                  </svg>
+                  <span>Upload Folder</span>
+                  <p>Folder of resumes</p>
+                  <input type="file" webkitdirectory="" directory="" onChange={handleUploadToJob} style={{ display: 'none' }} />
+                </label>
               </div>
               <div className="field">
                 <label>Assign from talent pool</label>
@@ -804,6 +864,11 @@ function JobsView({ runTask, settings }) {
                   title="View application detail"
                   onClick={e => { e.stopPropagation(); setDetailApp(app) }}
                 >⋯</button>
+                <button
+                  className="btn-danger btn-sm"
+                  title="Remove from this job"
+                  onClick={e => { e.stopPropagation(); handleRemoveApplication(app.id) }}
+                >✕</button>
               </div>
             ))}
             {selectedJob && !applications.length && (
@@ -915,10 +980,10 @@ function JobsView({ runTask, settings }) {
           <div className="card-header">
             <div>
               <p className="card-title">JD Quality</p>
-              {jdReport && jdReportJobId === selectedJob?.id && (
+              {jdReports[selectedJob?.id] && (
                 <p className="card-subtitle">
-                  Score: <strong style={{ color: jdReport.overall_score >= 85 ? 'var(--success)' : jdReport.overall_score >= 70 ? 'var(--warning)' : 'var(--danger)' }}>{jdReport.overall_score}/100</strong>
-                  &nbsp;·&nbsp;{jdReport.issues.length} issue{jdReport.issues.length !== 1 ? 's' : ''}
+                  Score: <strong style={{ color: jdReports[selectedJob?.id].overall_score >= 85 ? 'var(--success)' : jdReports[selectedJob?.id].overall_score >= 70 ? 'var(--warning)' : 'var(--danger)' }}>{jdReports[selectedJob?.id].overall_score}/100</strong>
+                  &nbsp;·&nbsp;{jdReports[selectedJob?.id].issues.length} issue{jdReports[selectedJob?.id].issues.length !== 1 ? 's' : ''}
                 </p>
               )}
             </div>
@@ -928,11 +993,11 @@ function JobsView({ runTask, settings }) {
               disabled={!selectedJob}
               title="Analyse this JD for vague requirements, bias, skill stacking, and more"
             >
-              {jdReport && jdReportJobId === selectedJob?.id ? '↺ Re-run' : 'Check JD'}
+              {jdReports[selectedJob?.id] ? '↺ Re-run' : 'Check JD'}
             </button>
           </div>
-          {jdReport && jdReportJobId === selectedJob?.id
-            ? <JDQualityReport report={jdReport} />
+          {jdReports[selectedJob?.id]
+            ? <JDQualityReport report={jdReports[selectedJob?.id]} />
             : (
               <div className="card-body">
                 <p style={{ fontSize: '0.82rem', color: 'var(--muted)', margin: 0 }}>
@@ -1112,14 +1177,27 @@ function CandidatesView({ runTask }) {
                 </select>
                 <p className="hint">If selected, candidates are automatically applied to this job after processing.</p>
               </div>
-              <div className="field">
-                <label>PDF files</label>
-                <input type="file" accept="application/pdf" multiple onChange={handleUploadPdfs} />
-              </div>
-              <div className="field">
-                <label>Entire folder of PDFs</label>
-                <input type="file" webkitdirectory="" directory="" onChange={handleUploadPdfs} />
-                <p className="hint">Candidates are de-duplicated by email and resume hash.</p>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '12px' }}>
+                <label className="upload-zone">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ display: 'block', margin: '0 auto 8px' }}>
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                    <polyline points="17 8 12 3 7 8" />
+                    <line x1="12" y1="3" x2="12" y2="15" />
+                  </svg>
+                  <span>Upload PDFs</span>
+                  <p>Single or multiple resumes</p>
+                  <input type="file" accept="application/pdf" multiple onChange={handleUploadPdfs} style={{ display: 'none' }} />
+                </label>
+                <label className="upload-zone">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ display: 'block', margin: '0 auto 8px' }}>
+                    <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+                    <line x1="12" y1="11" x2="12" y2="17" />
+                    <line x1="9" y1="14" x2="15" y2="14" />
+                  </svg>
+                  <span>Upload Folder</span>
+                  <p>Folder of resumes</p>
+                  <input type="file" webkitdirectory="" directory="" onChange={handleUploadPdfs} style={{ display: 'none' }} />
+                </label>
               </div>
             </div>
           )}
@@ -1477,63 +1555,76 @@ function SearchView() {
   }
 
   return (
-    <div className="two-col" style={{ maxWidth: '760px' }}>
-      <div className="card" style={{ gridColumn: '1 / -1' }}>
-        <div className="card-header"><p className="card-title">Semantic Search</p></div>
+    <div style={{ maxWidth: '800px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '24px' }}>
+      <div className="card">
+        <div className="card-header">
+          <span className="card-title">Semantic Search Engine</span>
+        </div>
         <div className="card-body">
-          <form onSubmit={handleSearch} style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+          <form onSubmit={handleSearch} style={{ display: 'flex', gap: '10px' }}>
             <input
               value={q}
               onChange={e => setQ(e.target.value)}
-              placeholder="Search across resumes, job descriptions, and recruiter notes…"
-              style={{ flex: '1 1 300px', minWidth: '200px' }}
+              placeholder="Search across resumes, jobs, and notes..."
+              style={{ flex: '1' }}
               autoFocus
             />
             <button className="btn-primary" type="submit" disabled={loading || !q.trim()}>
               {loading ? 'Searching…' : 'Search'}
             </button>
           </form>
-          <div style={{ display: 'flex', gap: '12px', marginTop: '10px', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', gap: '16px', marginTop: '14px', flexWrap: 'wrap' }}>
             {Object.entries(SEARCH_TYPE_LABELS).map(([key, label]) => (
-              <label key={key} style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '0.83rem', cursor: 'pointer' }}>
+              <label key={key} className="checkbox-field">
                 <input type="checkbox" checked={types.includes(key)} onChange={() => toggleType(key)} />
-                {label}
+                <span>{label}</span>
               </label>
             ))}
           </div>
-          <p className="hint" style={{ marginTop: '8px' }}>
-            Results are ranked by semantic similarity. First search loads the embedding model (~25 MB, one-time download).
+          <p className="hint" style={{ marginTop: '12px' }}>
+            Results are ranked by semantic similarity. The initial search will automatically boot the embedding model.
           </p>
         </div>
       </div>
 
       {error && (
-        <div className="card" style={{ gridColumn: '1 / -1', borderColor: 'var(--danger)' }}>
-          <div className="card-body"><p style={{ color: 'var(--danger)', margin: 0 }}>{error}</p></div>
+        <div className="card" style={{ borderColor: 'var(--danger)', background: 'var(--danger-subtle)' }}>
+          <div className="card-body"><p style={{ color: 'var(--danger-text)', margin: 0, fontWeight: 500 }}>{error}</p></div>
         </div>
       )}
 
       {hits !== null && (
-        <div className="card" style={{ gridColumn: '1 / -1' }}>
+        <div className="card">
           <div className="card-header">
-            <p className="card-title">Results</p>
-            <span style={{ fontSize: '0.8rem', color: 'var(--muted)' }}>{hits.length} hit{hits.length !== 1 ? 's' : ''}</span>
+            <span className="card-title">Search Results</span>
+            <span className="badge badge-gray">{hits.length} matches</span>
           </div>
-          {hits.length === 0
-            ? <div className="card-body"><p style={{ color: 'var(--muted)', margin: 0 }}>No results found.</p></div>
-            : hits.map((hit, i) => (
-              <div key={i} className="card-body" style={{ borderTop: i === 0 ? 'none' : '1px solid var(--border)' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px', flexWrap: 'wrap' }}>
+          {hits.length === 0 ? (
+            <div className="card-body" style={{ textAlign: 'center', padding: '40px 20px' }}>
+              <p style={{ color: 'var(--muted)', margin: 0 }}>No matching entries found in database.</p>
+            </div>
+          ) : (
+            hits.map((hit, i) => (
+              <div key={i} className="card-body" style={{ borderTop: i === 0 ? 'none' : '1px solid var(--border)', transition: 'background 0.2s', cursor: 'default' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px', flexWrap: 'wrap' }}>
                   <span className={`badge ${TYPE_BADGE[hit.type] || 'badge-gray'}`}>{hit.type}</span>
-                  <span style={{ fontWeight: 600, fontSize: '0.9rem' }}>{hit.label}</span>
-                  <span style={{ marginLeft: 'auto', fontSize: '0.8rem', color: hit.score >= 0.7 ? 'var(--success)' : hit.score >= 0.45 ? 'var(--warning)' : 'var(--muted)' }}>
-                    {(hit.score * 100).toFixed(0)}% match
+                  <span style={{ fontWeight: 700, fontSize: '0.9rem', color: 'var(--text)' }}>{hit.label}</span>
+                  <span style={{
+                    marginLeft: 'auto',
+                    fontSize: '0.8rem',
+                    fontWeight: 700,
+                    padding: '2px 8px',
+                    borderRadius: '4px',
+                    background: hit.score >= 0.7 ? 'var(--success-subtle)' : hit.score >= 0.45 ? 'var(--warning-subtle)' : 'var(--border-subtle)',
+                    color: hit.score >= 0.7 ? 'var(--success-text)' : hit.score >= 0.45 ? 'var(--warning-text)' : 'var(--muted)'
+                  }}>
+                    {(hit.score * 100).toFixed(0)}% Match
                   </span>
                 </div>
-                <p style={{ margin: 0, fontSize: '0.82rem', color: 'var(--muted)', lineHeight: 1.5 }}>{hit.snippet}</p>
+                <p style={{ margin: 0, fontSize: '0.82rem', color: 'var(--muted)', lineHeight: 1.6 }}>{hit.snippet}</p>
               </div>
             ))
-          }
+          )}
         </div>
       )}
     </div>
@@ -1665,14 +1756,14 @@ function SettingsView({ runTask, settings, onSave }) {
           <p className="card-title">Current values</p>
         </div>
         <div className="card-body">
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
+          <table className="telemetry-table">
             <tbody>
               {Object.entries(form).map(([k, v]) => (
-                <tr key={k} style={{ borderBottom: '1px solid var(--border)' }}>
-                  <td style={{ padding: '6px 12px 6px 0', color: 'var(--muted)', width: '40%', fontWeight: 500 }}>
+                <tr key={k}>
+                  <td>
                     {k.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}
                   </td>
-                  <td style={{ padding: '6px 0', wordBreak: 'break-word' }}>
+                  <td>
                     {typeof v === 'boolean'
                       ? <span style={{ color: v ? 'var(--success)' : 'var(--danger)', fontWeight: 600 }}>{String(v)}</span>
                       : String(v)}
@@ -1693,14 +1784,14 @@ function SettingsView({ runTask, settings, onSave }) {
         </div>
         <div className="card-body">
           {envInfo ? (
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
+            <table className="telemetry-table">
               <tbody>
                 {Object.entries(envInfo).map(([k, v]) => (
-                  <tr key={k} style={{ borderBottom: '1px solid var(--border)' }}>
-                    <td style={{ padding: '6px 12px 6px 0', color: 'var(--muted)', width: '40%', fontWeight: 500 }}>
+                  <tr key={k}>
+                    <td>
                       {k.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}
                     </td>
-                    <td style={{ padding: '6px 0', wordBreak: 'break-word', fontFamily: 'monospace', fontSize: '0.8rem' }}>
+                    <td>
                       {typeof v === 'boolean'
                         ? <span style={{ color: v ? 'var(--success)' : 'var(--danger)', fontWeight: 600 }}>{String(v)}</span>
                         : String(v)}

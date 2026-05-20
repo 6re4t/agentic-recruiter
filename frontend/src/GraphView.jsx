@@ -22,10 +22,10 @@ async function apiFetch(path) {
 }
 
 function scoreColor(score) {
-  if (score == null) return '#94a3b8'
-  if (score >= 70) return '#059669'
-  if (score >= 40) return '#d97706'
-  return '#dc2626'
+  if (score == null) return 'var(--muted-light)'
+  if (score >= 70) return 'var(--success)'
+  if (score >= 40) return 'var(--warning)'
+  return 'var(--danger)'
 }
 
 // ─── Custom node: Job ────────────────────────────────────────────────────────
@@ -33,14 +33,17 @@ function scoreColor(score) {
 function JobNode({ data }) {
   return (
     <div style={{
-      background: '#4f46e5', color: '#fff', borderRadius: '10px',
-      padding: '12px 18px', minWidth: '190px',
-      boxShadow: '0 2px 12px rgba(79,70,229,0.35)',
-      border: '2px solid transparent',
+      background: 'linear-gradient(135deg, var(--primary) 0%, hsl(var(--primary-h), var(--primary-s), 58%) 100%)',
+      color: '#fff',
+      borderRadius: '12px',
+      padding: '14px 20px',
+      minWidth: '200px',
+      boxShadow: '0 8px 18px var(--primary-glow)',
+      border: 'none',
       cursor: 'pointer',
     }}>
-      <Handle type="source" position={Position.Right} style={{ background: '#818cf8', border: '2px solid #fff' }} />
-      <div style={{ fontWeight: 700, fontSize: '0.88rem', marginBottom: '4px', lineHeight: 1.3 }}>{data.label}</div>
+      <Handle type="source" position={Position.Right} style={{ background: 'var(--primary-light)', border: '2.5px solid var(--surface)', width: 9, height: 9 }} />
+      <div style={{ fontWeight: 700, fontSize: '0.88rem', marginBottom: '4px', lineHeight: 1.3, fontFamily: 'var(--font-headings)' }}>{data.label}</div>
       <div style={{ fontSize: '0.72rem', opacity: 0.85, marginBottom: data.categories?.length ? '8px' : 0 }}>
         {data.applicants} applicant{data.applicants !== 1 ? 's' : ''}
       </div>
@@ -48,8 +51,8 @@ function JobNode({ data }) {
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '3px' }}>
           {data.categories.map((cat, i) => (
             <span key={i} style={{
-              background: 'rgba(255,255,255,0.18)', borderRadius: '4px',
-              padding: '1px 6px', fontSize: '0.66rem', fontWeight: 500,
+              background: 'rgba(255, 255, 255, 0.16)', borderRadius: '4px',
+              padding: '2px 6px', fontSize: '0.64rem', fontWeight: 600,
             }}>
               {cat}
             </span>
@@ -66,28 +69,31 @@ function CandidateNode({ data }) {
   const color = scoreColor(data.score)
   return (
     <div style={{
-      background: '#ffffff', color: '#111827', borderRadius: '10px',
-      padding: '10px 14px', minWidth: '170px',
-      boxShadow: '0 1px 6px rgba(0,0,0,0.12)',
-      border: `2px solid ${color}`,
+      background: 'var(--surface)',
+      color: 'var(--text)',
+      borderRadius: '12px',
+      padding: '12px 16px',
+      minWidth: '180px',
+      boxShadow: 'var(--shadow-sm)',
+      border: '1.5px solid var(--border)',
+      borderLeft: `4.5px solid ${color}`,
       cursor: 'pointer',
     }}>
-      <Handle type="target" position={Position.Left} style={{ background: color, border: '2px solid #fff' }} />
+      <Handle type="target" position={Position.Left} style={{ background: color, border: '2px solid var(--surface)', width: 8, height: 8 }} />
       {data.showSkills && (
-        <Handle type="source" position={Position.Right} style={{ background: '#10b981', border: '2px solid #fff' }} />
+        <Handle type="source" position={Position.Right} style={{ background: 'var(--success)', border: '2px solid var(--surface)', width: 8, height: 8 }} />
       )}
-      <div style={{ fontWeight: 600, fontSize: '0.85rem', marginBottom: '4px', lineHeight: 1.3 }}>{data.label}</div>
+      <div style={{ fontWeight: 700, fontSize: '0.84rem', marginBottom: '6px', lineHeight: 1.3, color: 'var(--text)' }}>{data.label}</div>
       <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
         {data.score != null
-          ? <span style={{
-              background: color, color: '#fff', borderRadius: '999px',
-              padding: '1px 8px', fontSize: '0.71rem', fontWeight: 700,
+          ? <span className={`badge ${data.score >= 70 ? 'badge-green' : data.score >= 40 ? 'badge-yellow' : 'badge-red'}`} style={{
+              fontSize: '0.68rem', padding: '1px 6px', fontWeight: 700,
             }}>
-              {data.score.toFixed(0)}
+              {data.score.toFixed(0)} Score
             </span>
-          : <span style={{ fontSize: '0.72rem', color: '#9ca3af' }}>not scored</span>
+          : <span style={{ fontSize: '0.7rem', color: 'var(--muted-light)', fontWeight: 500 }}>not scored</span>
         }
-        <span style={{ fontSize: '0.7rem', color: '#9ca3af' }}>{data.stage}</span>
+        <span style={{ fontSize: '0.7rem', color: 'var(--muted)', marginLeft: 'auto', fontWeight: 500 }}>{data.stage}</span>
       </div>
     </div>
   )
@@ -98,12 +104,17 @@ function CandidateNode({ data }) {
 function SkillNode({ data }) {
   return (
     <div style={{
-      background: '#ecfdf5', color: '#065f46', borderRadius: '999px',
-      padding: '4px 12px', fontSize: '0.71rem', fontWeight: 600,
-      border: '1px solid #6ee7b7', whiteSpace: 'nowrap',
+      background: 'var(--success-subtle)',
+      color: 'var(--success-text)',
+      borderRadius: '999px',
+      padding: '4px 12px',
+      fontSize: '0.71rem',
+      fontWeight: 600,
+      border: '1px solid var(--success-border)',
+      whiteSpace: 'nowrap',
       cursor: 'default',
     }}>
-      <Handle type="target" position={Position.Left} style={{ background: '#10b981', border: 'none', width: 6, height: 6 }} />
+      <Handle type="target" position={Position.Left} style={{ background: 'var(--success)', border: 'none', width: 6, height: 6 }} />
       {data.label}
     </div>
   )
@@ -235,7 +246,7 @@ export default function GraphView() {
             id: `e-skill-${cand.id}-${si}`,
             source: `cand-${cand.id}`,
             target: skillId,
-            style: { stroke: '#10b981', strokeWidth: 1, opacity: 0.5 },
+            style: { stroke: 'var(--success-border)', strokeWidth: 1, opacity: 0.6 },
             type: 'smoothstep',
           })
         })
@@ -252,8 +263,8 @@ export default function GraphView() {
         type: 'smoothstep',
         label: app.score != null ? app.score.toFixed(0) : '',
         style: { stroke: color, strokeWidth: app.score != null ? 2.5 : 1 },
-        labelStyle: { fill: color, fontWeight: 700, fontSize: '11px' },
-        labelBgStyle: { fill: 'rgba(246,247,251,0.9)', padding: '2px 4px' },
+        labelStyle: { fill: color, fontWeight: 700, fontSize: '11px', fontFamily: 'var(--font-body)' },
+        labelBgStyle: { fill: 'rgba(255, 255, 255, 0.95)', padding: '2px 4px' },
         labelBgPadding: [4, 3],
         labelBgBorderRadius: 4,
         markerEnd: { type: MarkerType.ArrowClosed, color, width: 16, height: 16 },
@@ -286,28 +297,28 @@ export default function GraphView() {
       if (raw?.analyzed_json) { try { analysis = JSON.parse(raw.analyzed_json) } catch {} }
       return (
         <div>
-          <div style={{ fontWeight: 700, fontSize: '0.95rem', marginBottom: '10px' }}>💼 {raw.title}</div>
+          <div style={{ fontWeight: 700, fontSize: '0.95rem', marginBottom: '12px', color: 'var(--text)', fontFamily: 'var(--font-headings)' }}>💼 {raw.title}</div>
 
           {analysis ? (
             <>
               <p className="section-label">Scoring Categories</p>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginBottom: '10px' }}>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginBottom: '12px' }}>
                 {analysis.scoring_categories?.map((c, i) => (
-                  <span key={i} className="badge badge-purple" style={{ fontSize: '0.72rem' }}>{c}</span>
+                  <span key={i} className="badge badge-purple" style={{ fontSize: '0.7rem' }}>{c}</span>
                 ))}
               </div>
 
               <p className="section-label">Required Skills</p>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginBottom: '10px' }}>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginBottom: '12px' }}>
                 {analysis.required_skills?.map((s, i) => (
-                  <span key={i} className="badge badge-blue" style={{ fontSize: '0.72rem' }}>{s}</span>
+                  <span key={i} className="badge badge-blue" style={{ fontSize: '0.7rem' }}>{s}</span>
                 ))}
               </div>
 
               {analysis.deal_breakers?.length > 0 && (
                 <>
-                  <p className="section-label" style={{ color: 'var(--danger)' }}>Deal-breakers</p>
-                  <ul style={{ margin: '0 0 10px', paddingLeft: '16px', fontSize: '0.78rem', display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                  <p className="section-label" style={{ color: 'var(--danger-text)' }}>Deal-breakers</p>
+                  <ul style={{ margin: '0 0 12px', paddingLeft: '16px', fontSize: '0.78rem', display: 'flex', flexDirection: 'column', gap: '3px', color: 'var(--text-2)' }}>
                     {analysis.deal_breakers.map((d, i) => <li key={i}>{d}</li>)}
                   </ul>
                 </>
@@ -317,13 +328,13 @@ export default function GraphView() {
               <span className="badge badge-gray">{analysis.seniority_level}</span>
             </>
           ) : (
-            <p style={{ color: 'var(--muted)', fontSize: '0.8rem' }}>
+            <p style={{ color: 'var(--muted)', fontSize: '0.8rem', lineHeight: 1.4 }}>
               No analysis cached yet — run the pipeline on a candidate for this job to populate.
             </p>
           )}
 
           <p className="section-label" style={{ marginTop: '14px' }}>Applicants</p>
-          <p style={{ fontSize: '0.85rem', margin: 0 }}>{data.applicants}</p>
+          <p style={{ fontSize: '0.85rem', margin: 0, fontWeight: 600 }}>{data.applicants} candidates applied</p>
         </div>
       )
     }
@@ -336,16 +347,16 @@ export default function GraphView() {
 
       return (
         <div>
-          <div style={{ fontWeight: 700, fontSize: '0.95rem', marginBottom: '4px' }}>
+          <div style={{ fontWeight: 700, fontSize: '0.95rem', marginBottom: '4px', color: 'var(--text)', fontFamily: 'var(--font-headings)' }}>
             👤 {raw.name || `Candidate #${raw.id}`}
           </div>
-          <div style={{ fontSize: '0.75rem', color: 'var(--muted)', marginBottom: '10px' }}>
+          <div style={{ fontSize: '0.75rem', color: 'var(--muted)', marginBottom: '12px' }}>
             {raw.email || 'no email'}
           </div>
 
           {extracted && (
             <>
-              <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '8px' }}>
+              <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '10px' }}>
                 {extracted.seniority && <span className="badge badge-gray">{extracted.seniority}</span>}
                 {extracted.years_experience != null && (
                   <span className="badge badge-gray">{extracted.years_experience}y exp</span>
@@ -354,25 +365,22 @@ export default function GraphView() {
               </div>
 
               {extracted.headline && (
-                <p style={{ fontSize: '0.8rem', color: 'var(--muted)', fontStyle: 'italic', margin: '0 0 10px', lineHeight: 1.4 }}>
-                  {extracted.headline}
+                <p style={{ fontSize: '0.8rem', color: 'var(--muted)', fontStyle: 'italic', margin: '0 0 12px', lineHeight: 1.4 }}>
+                  "{extracted.headline}"
                 </p>
               )}
 
               <p className="section-label">Skills</p>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginBottom: '10px' }}>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginBottom: '12px' }}>
                 {extracted.skills?.slice(0, 14).map((s, i) => (
-                  <span key={i} style={{
-                    background: '#ecfdf5', color: '#065f46', border: '1px solid #6ee7b7',
-                    borderRadius: '4px', padding: '1px 7px', fontSize: '0.7rem', fontWeight: 500,
-                  }}>{s}</span>
+                  <span key={i} className="badge badge-green" style={{ fontSize: '0.68rem', padding: '2px 7px' }}>{s}</span>
                 ))}
               </div>
 
               {extracted.highlights?.length > 0 && (
                 <>
                   <p className="section-label">Highlights</p>
-                  <ul style={{ margin: '0 0 10px', paddingLeft: '16px', fontSize: '0.78rem', display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                  <ul style={{ margin: '0 0 12px', paddingLeft: '16px', fontSize: '0.78rem', display: 'flex', flexDirection: 'column', gap: '4px', color: 'var(--text-2)' }}>
                     {extracted.highlights.slice(0, 4).map((h, i) => <li key={i}>{h}</li>)}
                   </ul>
                 </>
@@ -390,18 +398,18 @@ export default function GraphView() {
                   return (
                     <div key={app.id} style={{
                       display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                      fontSize: '0.78rem', padding: '5px 0',
+                      fontSize: '0.78rem', padding: '6px 0',
                       borderBottom: '1px solid var(--border)',
                     }}>
-                      <span style={{ color: 'var(--text)', flex: 1, marginRight: '8px' }}>
+                      <span style={{ color: 'var(--text-2)', flex: 1, marginRight: '8px', fontWeight: 500 }}>
                         {job?.title || `Job #${app.job_id}`}
                       </span>
                       {app.score != null
                         ? <span style={{
                             background: color, color: '#fff', borderRadius: '999px',
-                            padding: '1px 8px', fontWeight: 700, flexShrink: 0,
+                            padding: '1px 8px', fontWeight: 700, flexShrink: 0, fontSize: '0.7rem'
                           }}>{app.score.toFixed(0)}</span>
-                        : <span style={{ color: 'var(--muted)' }}>—</span>
+                        : <span style={{ color: 'var(--muted-light)' }}>—</span>
                       }
                     </div>
                   )
@@ -416,9 +424,9 @@ export default function GraphView() {
     if (type === 'skill') {
       return (
         <div style={{ fontSize: '0.9rem' }}>
-          <span style={{ fontWeight: 600 }}>🔧 {selectedNode.data.label}</span>
-          <p style={{ fontSize: '0.78rem', color: 'var(--muted)', marginTop: '8px' }}>
-            Extracted skill from candidate resume.
+          <span style={{ fontWeight: 700, color: 'var(--text)' }}>🔧 {selectedNode.data.label}</span>
+          <p style={{ fontSize: '0.78rem', color: 'var(--muted)', marginTop: '8px', lineHeight: 1.45 }}>
+            Extracted skill identifier from candidate profile.
           </p>
         </div>
       )
@@ -449,60 +457,60 @@ export default function GraphView() {
   const appCount = edges.filter(e => e.id.startsWith('e-app')).length
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 112px)', gap: '0' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 170px)', gap: '12px', animation: 'fadeIn 0.25s ease' }}>
 
       {/* Controls bar */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '16px', paddingBottom: '10px', flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '20px', paddingBottom: '2px', flexWrap: 'wrap' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <label style={{ fontSize: '0.82rem', color: 'var(--muted)', whiteSpace: 'nowrap' }}>Filter by job</label>
+          <label style={{ fontSize: '0.8rem', color: 'var(--muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.02em' }}>Filter by job</label>
           <select value={selectedJobId} onChange={e => { setSelectedJobId(e.target.value); setSelectedNode(null) }}
-            style={{ minWidth: '200px', fontSize: '0.83rem' }}>
+            style={{ minWidth: '220px', fontSize: '0.83rem' }}>
             <option value="all">All Jobs</option>
             {jobs.map(j => <option key={j.id} value={j.id}>#{j.id} {j.title}</option>)}
           </select>
         </div>
 
-        <label style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '0.82rem', cursor: 'pointer' }}>
+        <label className="checkbox-field" style={{ fontSize: '0.82rem' }}>
           <input type="checkbox" checked={showSkills} onChange={e => setShowSkills(e.target.checked)} />
-          Show skill nodes
+          <span>Show skill nodes</span>
         </label>
 
-        <span style={{ fontSize: '0.77rem', color: 'var(--muted)' }}>
-          {jobCount} job{jobCount !== 1 ? 's' : ''} · {candCount} candidate{candCount !== 1 ? 's' : ''} · {appCount} edge{appCount !== 1 ? 's' : ''}
+        <span style={{ fontSize: '0.8rem', color: 'var(--muted)', marginLeft: 'auto', fontWeight: 500 }}>
+          <strong style={{ color: 'var(--text)' }}>{jobCount}</strong> jobs · <strong style={{ color: 'var(--text)' }}>{candCount}</strong> candidates · <strong style={{ color: 'var(--text)' }}>{appCount}</strong> edges
         </span>
       </div>
 
       {/* Legend */}
-      <div style={{ display: 'flex', gap: '18px', paddingBottom: '8px', flexWrap: 'wrap', fontSize: '0.74rem', color: 'var(--muted)' }}>
-        <span style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-          <span style={{ width: 12, height: 12, borderRadius: '3px', background: '#4f46e5', display: 'inline-block' }} />
+      <div style={{ display: 'flex', gap: '18px', paddingBottom: '4px', flexWrap: 'wrap', fontSize: '0.74rem', color: 'var(--muted)' }}>
+        <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <span style={{ width: 10, height: 10, borderRadius: '3px', background: 'var(--primary)', display: 'inline-block' }} />
           Job
         </span>
-        <span style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-          <span style={{ width: 12, height: 2, background: '#059669', display: 'inline-block' }} />
+        <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <span style={{ width: 10, height: 4, borderRadius: '2px', background: 'var(--success)', display: 'inline-block' }} />
           Score ≥ 70
         </span>
-        <span style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-          <span style={{ width: 12, height: 2, background: '#d97706', display: 'inline-block' }} />
+        <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <span style={{ width: 10, height: 4, borderRadius: '2px', background: 'var(--warning)', display: 'inline-block' }} />
           Score 40–69
         </span>
-        <span style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-          <span style={{ width: 12, height: 2, background: '#dc2626', display: 'inline-block' }} />
+        <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <span style={{ width: 10, height: 4, borderRadius: '2px', background: 'var(--danger)', display: 'inline-block' }} />
           Score &lt; 40
         </span>
-        <span style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-          <span style={{ width: 12, height: 2, background: '#94a3b8', display: 'inline-block' }} />
+        <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <span style={{ width: 10, height: 4, borderRadius: '2px', background: 'var(--muted-light)', display: 'inline-block' }} />
           Not scored
         </span>
       </div>
 
       {/* Graph + details panel */}
-      <div style={{ flex: 1, display: 'flex', gap: '16px', minHeight: 0 }}>
+      <div style={{ flex: 1, display: 'flex', gap: '20px', minHeight: 0 }}>
 
         {/* React Flow canvas */}
         <div style={{
-          flex: 1, border: '1px solid var(--border)', borderRadius: '10px',
-          overflow: 'hidden', background: '#f8fafc',
+          flex: 1, border: '1px solid var(--border)', borderRadius: '12px',
+          overflow: 'hidden', background: 'var(--bg)', boxShadow: 'var(--shadow-sm)'
         }}>
           {nodes.length === 0
             ? (
@@ -531,16 +539,15 @@ export default function GraphView() {
                 defaultEdgeOptions={{ type: 'smoothstep' }}
                 proOptions={{ hideAttribution: true }}
               >
-                <Background color="#e5e7eb" gap={24} />
+                <Background color="var(--border)" gap={24} size={1} />
                 <Controls />
                 <MiniMap
                   nodeColor={n => {
-                    if (n.type === 'job') return '#4f46e5'
-                    if (n.type === 'skill') return '#10b981'
+                    if (n.type === 'job') return 'var(--primary)'
+                    if (n.type === 'skill') return 'var(--success)'
                     return scoreColor(n.data?.score)
                   }}
-                  maskColor="rgba(246,247,251,0.7)"
-                  style={{ border: '1px solid var(--border)', borderRadius: '6px' }}
+                  style={{ border: '1px solid var(--border)', borderRadius: '8px' }}
                 />
               </ReactFlow>
             )
@@ -549,18 +556,20 @@ export default function GraphView() {
 
         {/* Details panel */}
         <div style={{
-          width: '270px', flexShrink: 0,
-          border: '1px solid var(--border)', borderRadius: '10px',
-          background: 'var(--surface)', padding: '16px', overflowY: 'auto',
-          boxShadow: 'var(--shadow)',
+          width: '280px', flexShrink: 0,
+          border: '1px solid var(--border)', borderRadius: '12px',
+          background: 'var(--surface)', padding: '20px', overflowY: 'auto',
+          boxShadow: 'var(--shadow)', display: 'flex', flexDirection: 'column'
         }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
-            <p className="section-label" style={{ margin: 0 }}>Details</p>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', borderBottom: '1px solid var(--border)', paddingBottom: '10px' }}>
+            <span className="section-label" style={{ margin: 0 }}>Details</span>
             {selectedNode && (
-              <button className="btn-ghost btn-sm" onClick={() => setSelectedNode(null)}>✕</button>
+              <button className="btn-ghost btn-sm" onClick={() => setSelectedNode(null)} style={{ padding: '4px 8px', minWidth: 'auto' }}>✕</button>
             )}
           </div>
-          {renderDetails()}
+          <div style={{ flex: 1, overflowY: 'auto' }}>
+            {renderDetails()}
+          </div>
         </div>
       </div>
     </div>

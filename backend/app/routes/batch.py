@@ -59,19 +59,35 @@ def topk_outreach(payload: BatchTopKRequest, session: Session = Depends(get_sess
     if payload.candidate_ids:
         candidates = [c for cid in payload.candidate_ids if (c := session.get(Candidate, cid))]
     else:
-        candidates = session.exec(
-            select(Candidate).where(Candidate.stage == "Ready").order_by(Candidate.created_at.desc())
+        # Only candidates already applied to this job — never pull in the global talent pool
+        app_rows = session.exec(
+            select(Application).where(Application.job_id == payload.job_id)
         ).all()
+        applied_ids = {a.candidate_id for a in app_rows}
+        candidates = [
+            c for cid in applied_ids
+            if (c := session.get(Candidate, cid))
+        ]
 
     cand_rows = [c for c in candidates if c.resume_text and c.stage == "Ready"]
     if not cand_rows:
         raise HTTPException(status_code=409, detail="No Ready candidates with resume_text to process.")
 
-    # Ensure an Application row exists for every candidate × job
-    app_by_cid: Dict[int, int] = {}  # candidate_id -> application_id
+    # Build candidate_id -> application_id map (applications already exist for this job)
+    app_by_cid: Dict[int, int] = {}
     for c in cand_rows:
-        app_rec = _get_or_create_application(session, c.id, payload.job_id)
-        app_by_cid[c.id] = app_rec.id
+        app_rec = session.exec(
+            select(Application)
+            .where(Application.candidate_id == c.id)
+            .where(Application.job_id == payload.job_id)
+        ).first()
+        if app_rec:
+            app_by_cid[c.id] = app_rec.id
+
+    # Only process candidates that have an application for this job
+    cand_rows = [c for c in cand_rows if c.id in app_by_cid]
+    if not cand_rows:
+        raise HTTPException(status_code=409, detail="No processable candidates found for this job.")
 
     # Optionally skip candidates that already have a score for this job
     if payload.skip_scored:

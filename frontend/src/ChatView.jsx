@@ -33,12 +33,12 @@ function renderMarkdown(text) {
       const headers = tableLines[0].split('|').map(h => h.trim()).filter(Boolean)
       const rows = tableLines.slice(1).map(r => r.split('|').map(c => c.trim()).filter(Boolean))
       elements.push(
-        <div key={i} style={{ overflowX: 'auto', margin: '8px 0' }}>
-          <table style={{ borderCollapse: 'collapse', width: '100%', fontSize: '0.82rem' }}>
+        <div key={i} style={{ overflowX: 'auto', margin: '12px 0', border: '1px solid var(--border)', borderRadius: '8px' }}>
+          <table style={{ borderCollapse: 'collapse', width: '100%', fontSize: '0.8rem', background: 'var(--surface)' }}>
             <thead>
-              <tr>
+              <tr style={{ background: 'var(--bg)' }}>
                 {headers.map((h, hi) => (
-                  <th key={hi} style={{ padding: '5px 10px', borderBottom: '2px solid var(--border)', textAlign: 'left', fontWeight: 600, whiteSpace: 'nowrap' }}>
+                  <th key={hi} style={{ padding: '8px 12px', borderBottom: '1.5px solid var(--border)', textAlign: 'left', fontWeight: 700, color: 'var(--text)', whiteSpace: 'nowrap' }}>
                     {inlineFormat(h)}
                   </th>
                 ))}
@@ -46,9 +46,9 @@ function renderMarkdown(text) {
             </thead>
             <tbody>
               {rows.map((row, ri) => (
-                <tr key={ri} style={{ borderBottom: '1px solid var(--border)', background: ri % 2 === 0 ? 'transparent' : 'rgba(0,0,0,0.02)' }}>
+                <tr key={ri} style={{ borderBottom: ri === rows.length - 1 ? 'none' : '1px solid var(--border)', background: ri % 2 === 0 ? 'transparent' : 'var(--bg)' }}>
                   {row.map((cell, ci) => (
-                    <td key={ci} style={{ padding: '4px 10px', fontSize: '0.81rem' }}>{inlineFormat(cell)}</td>
+                    <td key={ci} style={{ padding: '8px 12px', color: 'var(--text-2)', fontSize: '0.8rem' }}>{inlineFormat(cell)}</td>
                   ))}
                 </tr>
               ))}
@@ -61,17 +61,17 @@ function renderMarkdown(text) {
 
     // H3
     if (line.startsWith('### ')) {
-      elements.push(<p key={i} style={{ fontWeight: 700, fontSize: '0.88rem', margin: '12px 0 4px', color: 'var(--text)' }}>{inlineFormat(line.slice(4))}</p>)
+      elements.push(<p key={i} style={{ fontWeight: 700, fontSize: '0.9rem', margin: '14px 0 6px', color: 'var(--text)', fontFamily: 'var(--font-headings)' }}>{inlineFormat(line.slice(4))}</p>)
       i++; continue
     }
     // H2
     if (line.startsWith('## ')) {
-      elements.push(<p key={i} style={{ fontWeight: 700, fontSize: '0.92rem', margin: '14px 0 4px', color: 'var(--text)' }}>{inlineFormat(line.slice(3))}</p>)
+      elements.push(<p key={i} style={{ fontWeight: 700, fontSize: '0.95rem', margin: '16px 0 6px', color: 'var(--text)', fontFamily: 'var(--font-headings)' }}>{inlineFormat(line.slice(3))}</p>)
       i++; continue
     }
     // H1
     if (line.startsWith('# ')) {
-      elements.push(<p key={i} style={{ fontWeight: 700, fontSize: '0.96rem', margin: '14px 0 4px', color: 'var(--text)' }}>{inlineFormat(line.slice(2))}</p>)
+      elements.push(<p key={i} style={{ fontWeight: 800, fontSize: '1rem', margin: '18px 0 6px', color: 'var(--text)', fontFamily: 'var(--font-headings)' }}>{inlineFormat(line.slice(2))}</p>)
       i++; continue
     }
 
@@ -79,10 +79,10 @@ function renderMarkdown(text) {
     if (/^[-*]\s/.test(line)) {
       const listItems = []
       while (i < lines.length && /^[-*]\s/.test(lines[i])) {
-        listItems.push(<li key={i} style={{ marginBottom: '2px' }}>{inlineFormat(lines[i].slice(2))}</li>)
+        listItems.push(<li key={i} style={{ marginBottom: '4px' }}>{inlineFormat(lines[i].slice(2))}</li>)
         i++
       }
-      elements.push(<ul key={`ul-${i}`} style={{ margin: '6px 0', paddingLeft: '18px', fontSize: '0.85rem', display: 'flex', flexDirection: 'column', gap: '2px' }}>{listItems}</ul>)
+      elements.push(<ul key={`ul-${i}`} style={{ margin: '8px 0', paddingLeft: '20px', fontSize: '0.84rem', color: 'var(--text-2)', display: 'flex', flexDirection: 'column', gap: '2px' }}>{listItems}</ul>)
       continue
     }
 
@@ -90,21 +90,21 @@ function renderMarkdown(text) {
     if (/^\d+\.\s/.test(line)) {
       const listItems = []
       while (i < lines.length && /^\d+\.\s/.test(lines[i])) {
-        listItems.push(<li key={i} style={{ marginBottom: '2px' }}>{inlineFormat(lines[i].replace(/^\d+\.\s/, ''))}</li>)
+        listItems.push(<li key={i} style={{ marginBottom: '4px' }}>{inlineFormat(lines[i].replace(/^\d+\.\s/, ''))}</li>)
         i++
       }
-      elements.push(<ol key={`ol-${i}`} style={{ margin: '6px 0', paddingLeft: '20px', fontSize: '0.85rem', display: 'flex', flexDirection: 'column', gap: '2px' }}>{listItems}</ol>)
+      elements.push(<ol key={`ol-${i}`} style={{ margin: '8px 0', paddingLeft: '20px', fontSize: '0.84rem', color: 'var(--text-2)', display: 'flex', flexDirection: 'column', gap: '2px' }}>{listItems}</ol>)
       continue
     }
 
     // Blank line
     if (!line.trim()) {
-      elements.push(<div key={i} style={{ height: '6px' }} />)
+      elements.push(<div key={i} style={{ height: '8px' }} />)
       i++; continue
     }
 
     // Normal paragraph
-    elements.push(<p key={i} style={{ margin: '3px 0', fontSize: '0.87rem', lineHeight: 1.55 }}>{inlineFormat(line)}</p>)
+    elements.push(<p key={i} style={{ margin: '4px 0', fontSize: '0.84rem', lineHeight: 1.6, color: 'var(--text-2)' }}>{inlineFormat(line)}</p>)
     i++
   }
 
@@ -121,10 +121,10 @@ function inlineFormat(text) {
     if (m.index > last) parts.push(text.slice(last, m.index))
     const tok = m[0]
     if (tok.startsWith('**')) {
-      parts.push(<strong key={m.index}>{tok.slice(2, -2)}</strong>)
+      parts.push(<strong key={m.index} style={{ color: 'var(--text)', fontWeight: 700 }}>{tok.slice(2, -2)}</strong>)
     } else if (tok.startsWith('`')) {
       parts.push(
-        <code key={m.index} style={{ background: 'rgba(0,0,0,0.07)', borderRadius: '3px', padding: '1px 4px', fontSize: '0.82em', fontFamily: 'monospace' }}>
+        <code key={m.index} style={{ background: 'var(--surface-sub)', border: '1px solid var(--border)', borderRadius: '4px', padding: '2px 5px', fontSize: '0.78rem', fontFamily: 'monospace', color: 'var(--text-2)' }}>
           {tok.slice(1, -1)}
         </code>
       )
@@ -150,12 +150,9 @@ function ToolPills({ tools }) {
   if (!tools?.length) return null
   const unique = [...new Set(tools)]
   return (
-    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginTop: '8px' }}>
+    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '10px' }}>
       {unique.map((t, i) => (
-        <span key={i} style={{
-          background: '#eef2ff', color: '#4338ca', border: '1px solid #c7d2fe',
-          borderRadius: '999px', padding: '2px 9px', fontSize: '0.7rem', fontWeight: 500,
-        }}>
+        <span key={i} className="badge badge-indigo" style={{ fontSize: '0.68rem', padding: '2px 8px' }}>
           {TOOL_LABELS[t] || t}
         </span>
       ))}
@@ -171,11 +168,17 @@ function MessageBubble({ msg }) {
 
   if (isUser) {
     return (
-      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '12px' }}>
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '16px' }}>
         <div style={{
-          background: 'var(--primary)', color: '#fff', borderRadius: '16px 16px 4px 16px',
-          padding: '10px 14px', maxWidth: '72%', fontSize: '0.87rem', lineHeight: 1.5,
-          boxShadow: '0 1px 4px rgba(79,70,229,0.25)',
+          background: 'linear-gradient(135deg, var(--primary) 0%, hsl(var(--primary-h), var(--primary-s), 58%) 100%)',
+          color: '#ffffff',
+          borderRadius: '16px 16px 4px 16px',
+          padding: '12px 16px',
+          maxWidth: '70%',
+          fontSize: '0.86rem',
+          lineHeight: 1.5,
+          fontWeight: 500,
+          boxShadow: '0 4px 12px var(--primary-glow)',
         }}>
           {msg.content}
         </div>
@@ -185,11 +188,16 @@ function MessageBubble({ msg }) {
 
   if (isError) {
     return (
-      <div style={{ display: 'flex', justifyContent: 'flex-start', marginBottom: '12px' }}>
+      <div style={{ display: 'flex', justifyContent: 'flex-start', marginBottom: '16px' }}>
         <div style={{
-          background: '#fee2e2', color: '#991b1b', borderRadius: '16px 16px 16px 4px',
-          padding: '10px 14px', maxWidth: '80%', fontSize: '0.85rem',
-          border: '1px solid #fca5a5',
+          background: 'var(--danger-subtle)',
+          color: 'var(--danger-text)',
+          borderRadius: '16px 16px 16px 4px',
+          padding: '12px 16px',
+          maxWidth: '75%',
+          fontSize: '0.84rem',
+          fontWeight: 500,
+          border: '1px solid var(--danger-border)',
         }}>
           {msg.content}
         </div>
@@ -198,19 +206,29 @@ function MessageBubble({ msg }) {
   }
 
   return (
-    <div style={{ display: 'flex', justifyContent: 'flex-start', marginBottom: '12px', gap: '8px', alignItems: 'flex-start' }}>
+    <div style={{ display: 'flex', justifyContent: 'flex-start', marginBottom: '16px', gap: '10px', alignItems: 'flex-start' }}>
       <div style={{
-        width: 28, height: 28, borderRadius: '50%', background: '#4f46e5',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        fontSize: '0.75rem', flexShrink: 0, marginTop: '2px',
+        width: 32,
+        height: 32,
+        borderRadius: '50%',
+        background: 'linear-gradient(135deg, var(--primary) 0%, #4338ca 100%)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        fontSize: '0.95rem',
+        flexShrink: 0,
+        boxShadow: '0 2px 8px var(--primary-glow)',
+        border: '2px solid #ffffff'
       }}>
         🤖
       </div>
       <div style={{ maxWidth: '80%' }}>
         <div style={{
-          background: 'var(--surface)', border: '1px solid var(--border)',
+          background: 'var(--surface)',
+          border: '1px solid var(--border)',
           borderRadius: '4px 16px 16px 16px',
-          padding: '10px 14px', boxShadow: 'var(--shadow)',
+          padding: '12px 16px',
+          boxShadow: 'var(--shadow-xs)',
           color: 'var(--text)',
         }}>
           {renderMarkdown(msg.content)}
@@ -225,26 +243,42 @@ function MessageBubble({ msg }) {
 
 function TypingIndicator() {
   return (
-    <div style={{ display: 'flex', justifyContent: 'flex-start', marginBottom: '12px', gap: '8px', alignItems: 'flex-start' }}>
+    <div style={{ display: 'flex', justifyContent: 'flex-start', marginBottom: '16px', gap: '10px', alignItems: 'flex-start' }}>
       <div style={{
-        width: 28, height: 28, borderRadius: '50%', background: '#4f46e5',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        fontSize: '0.75rem', flexShrink: 0,
+        width: 32,
+        height: 32,
+        borderRadius: '50%',
+        background: 'linear-gradient(135deg, var(--primary) 0%, #4338ca 100%)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        fontSize: '0.95rem',
+        flexShrink: 0,
+        boxShadow: '0 2px 8px var(--primary-glow)',
+        border: '2px solid #ffffff'
       }}>🤖</div>
       <div style={{
-        background: 'var(--surface)', border: '1px solid var(--border)',
-        borderRadius: '4px 16px 16px 16px', padding: '12px 16px',
-        boxShadow: 'var(--shadow)', display: 'flex', gap: '5px', alignItems: 'center',
+        background: 'var(--surface)',
+        border: '1px solid var(--border)',
+        borderRadius: '4px 16px 16px 16px',
+        padding: '14px 18px',
+        boxShadow: 'var(--shadow-xs)',
+        display: 'flex',
+        gap: '6px',
+        alignItems: 'center',
       }}>
         {[0, 1, 2].map(i => (
           <span key={i} style={{
-            width: 7, height: 7, borderRadius: '50%', background: 'var(--primary)',
+            width: 6,
+            height: 6,
+            borderRadius: '50%',
+            background: 'var(--primary)',
             display: 'inline-block',
-            animation: 'bounce 1.1s infinite',
+            animation: 'bounce 1.2s infinite',
             animationDelay: `${i * 0.18}s`,
           }} />
         ))}
-        <style>{`@keyframes bounce { 0%,80%,100%{transform:translateY(0);opacity:.5} 40%{transform:translateY(-5px);opacity:1} }`}</style>
+        <style>{`@keyframes bounce { 0%,80%,100%{transform:translateY(0);opacity:.4} 40%{transform:translateY(-6px);opacity:1} }`}</style>
       </div>
     </div>
   )
@@ -324,28 +358,28 @@ export default function ChatView() {
   }
 
   return (
-    <div style={{ display: 'flex', height: 'calc(100vh - 112px)', gap: '20px' }}>
+    <div style={{ display: 'flex', height: 'calc(100vh - 170px)', gap: '20px', animation: 'fadeIn 0.25s ease' }}>
 
       {/* Left panel: chat */}
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
 
         {/* Chat header */}
         <div style={{
-          background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '10px 10px 0 0',
-          padding: '12px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          boxShadow: 'var(--shadow)',
+          background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '12px 12px 0 0',
+          padding: '14px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          boxShadow: 'var(--shadow-sm)', zIndex: 10
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <span style={{ fontSize: '1.2rem' }}>🤖</span>
+            <span style={{ fontSize: '1.25rem' }}>🤖</span>
             <div>
-              <p style={{ margin: 0, fontWeight: 700, fontSize: '0.9rem' }}>Recruiter Assistant</p>
+              <p style={{ margin: 0, fontWeight: 700, fontSize: '0.88rem', color: 'var(--text)', fontFamily: 'var(--font-headings)' }}>Recruiter Assistant</p>
               <p style={{ margin: 0, fontSize: '0.72rem', color: 'var(--muted)' }}>
                 Powered by {(import.meta.env.VITE_API_BASE_URL || 'OpenRouter')} · tool-calling agent
               </p>
             </div>
           </div>
           <button className="btn-ghost btn-sm" onClick={clearChat} title="Clear chat">
-            ↺ Clear
+            Clear
           </button>
         </div>
 
@@ -353,7 +387,7 @@ export default function ChatView() {
         <div style={{
           flex: 1, overflowY: 'auto',
           background: 'var(--bg)', border: '1px solid var(--border)', borderTop: 'none',
-          padding: '16px', minHeight: 0,
+          padding: '20px', minHeight: 0,
         }}>
           {messages.map((msg, i) => <MessageBubble key={i} msg={msg} />)}
           {loading && <TypingIndicator />}
@@ -363,59 +397,60 @@ export default function ChatView() {
         {/* Input bar */}
         <div style={{
           background: 'var(--surface)', border: '1px solid var(--border)', borderTop: 'none',
-          borderRadius: '0 0 10px 10px', padding: '12px',
-          display: 'flex', gap: '8px', alignItems: 'flex-end',
-          boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
+          borderRadius: '0 0 12px 12px', padding: '14px',
+          display: 'flex', gap: '10px', alignItems: 'flex-end',
+          boxShadow: 'var(--shadow-sm)',
         }}>
           <textarea
             ref={textareaRef}
             value={input}
             onChange={e => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Ask about candidates, jobs, or scores… (Enter to send, Shift+Enter for newline)"
+            placeholder="Ask about candidates, jobs, or scores…"
             rows={2}
             disabled={loading}
             style={{
-              flex: 1, resize: 'none', fontFamily: 'inherit', fontSize: '0.87rem',
-              padding: '8px 12px', borderRadius: '8px', border: '1px solid var(--border)',
+              flex: 1, resize: 'none', fontFamily: 'var(--font-body)', fontSize: '0.87rem',
+              padding: '10px 14px', borderRadius: '8px', border: '1.5px solid var(--border)',
               background: loading ? 'var(--bg)' : 'var(--surface)', color: 'var(--text)',
               outline: 'none', lineHeight: 1.5, boxSizing: 'border-box',
-              transition: 'border-color 0.15s',
+              transition: 'all 0.15s',
             }}
-            onFocus={e => { e.target.style.borderColor = 'var(--border-focus)' }}
-            onBlur={e => { e.target.style.borderColor = 'var(--border)' }}
+            onFocus={e => { e.target.style.borderColor = 'var(--primary)'; e.target.style.boxShadow = '0 0 0 3px var(--primary-glow)' }}
+            onBlur={e => { e.target.style.borderColor = 'var(--border)'; e.target.style.boxShadow = 'none' }}
           />
           <button
             className="btn-primary"
             onClick={() => sendMessage()}
             disabled={loading || !input.trim()}
-            style={{ flexShrink: 0, height: '40px', padding: '0 18px', alignSelf: 'flex-end' }}
+            style={{ flexShrink: 0, height: '42px', padding: '0 20px', alignSelf: 'flex-end', borderRadius: '8px' }}
           >
-            {loading ? '…' : '↑ Send'}
+            {loading ? '…' : 'Send'}
           </button>
         </div>
       </div>
 
       {/* Right panel: suggested prompts */}
-      <div style={{ width: '230px', flexShrink: 0, display: 'flex', flexDirection: 'column', gap: '12px' }}>
-        <div className="card" style={{ padding: 0 }}>
-          <div className="card-header" style={{ paddingBottom: '8px' }}>
-            <p className="card-title">Suggested prompts</p>
+      <div style={{ width: '240px', flexShrink: 0, display: 'flex', flexDirection: 'column', gap: '16px' }}>
+        <div className="card" style={{ display: 'flex', flexDirection: 'column', flex: '1', minHeight: 0 }}>
+          <div className="card-header" style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)' }}>
+            <span className="card-title" style={{ fontSize: '0.84rem' }}>Suggested Prompts</span>
           </div>
-          <div style={{ padding: '0 12px 12px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+          <div style={{ padding: '12px', display: 'flex', flexDirection: 'column', gap: '8px', overflowY: 'auto', flex: 1 }}>
             {SUGGESTED_PROMPTS.map((p, i) => (
               <button key={i} onClick={() => handleSuggest(p)}
                 disabled={loading}
                 style={{
                   background: 'var(--bg)', border: '1px solid var(--border)',
-                  borderRadius: '8px', padding: '8px 10px', fontSize: '0.78rem',
-                  color: 'var(--text)', textAlign: 'left', cursor: 'pointer',
-                  lineHeight: 1.5, width: '100%', whiteSpace: 'normal',
+                  borderRadius: '8px', padding: '10px 12px', fontSize: '0.78rem',
+                  color: 'var(--text-2)', textAlign: 'left', cursor: 'pointer',
+                  lineHeight: 1.45, width: '100%', whiteSpace: 'normal',
                   wordBreak: 'break-word', display: 'block',
-                  transition: 'border-color 0.15s, background 0.15s',
+                  transition: 'all 0.15s ease',
+                  fontWeight: 500
                 }}
-                onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--primary)'; e.currentTarget.style.background = '#eef2ff' }}
-                onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.background = 'var(--bg)' }}
+                onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--primary)'; e.currentTarget.style.background = 'var(--primary-subtle)'; e.currentTarget.style.color = 'var(--primary)' }}
+                onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.background = 'var(--bg)'; e.currentTarget.style.color = 'var(--text-2)' }}
               >
                 {p}
               </button>
@@ -423,15 +458,15 @@ export default function ChatView() {
           </div>
         </div>
 
-        <div className="card" style={{ padding: 0 }}>
-          <div className="card-header" style={{ paddingBottom: '8px' }}>
-            <p className="card-title">Available tools</p>
+        <div className="card" style={{ flexShrink: 0 }}>
+          <div className="card-header" style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)' }}>
+            <span className="card-title" style={{ fontSize: '0.84rem' }}>Agent Capabilities</span>
           </div>
-          <div style={{ padding: '0 12px 12px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          <div style={{ padding: '12px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
             {Object.entries(TOOL_LABELS).map(([key, label]) => (
-              <div key={key} style={{ fontSize: '0.76rem' }}>
-                <div style={{ fontWeight: 600, marginBottom: '1px' }}>{label}</div>
-                <div style={{ color: 'var(--muted)', fontFamily: 'monospace', fontSize: '0.7rem' }}>{key}()</div>
+              <div key={key} style={{ fontSize: '0.75rem', display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                <span style={{ fontWeight: 650, color: 'var(--text)' }}>{label}</span>
+                <span style={{ color: 'var(--muted)', fontFamily: 'monospace', fontSize: '0.68rem' }}>{key}()</span>
               </div>
             ))}
           </div>
